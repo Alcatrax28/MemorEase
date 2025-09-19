@@ -1,34 +1,18 @@
 import customtkinter as ctk # pyright: ignore[reportMissingImports]
 import tkinter as tk
-import tkinter.font as tkFont
 from tkinter import filedialog, scrolledtext
 import os
 import json
 import getpass
 import string
-import subprocess
-import sys
 import threading
-import requests # pyright: ignore[reportMissingModuleSource]
-import tempfile
-import hashlib
 from CTkMessagebox import CTkMessagebox # pyright: ignore[reportMissingImports]
 from adb_tools import run_adb_download
 from sort_tools import sort_and_save_files
 from backup import run_backup
 from spinner_widget import SpinnerWidget
 from update_maker import check_for_update, download_update, launch_new_version # pyright: ignore[reportMissingImports]
-
-def resource_path(relative_path: str) -> str:
-
-    try:
-        base_path = sys._MEIPASS
-    except AttributeError:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
-
-CONFIG_FILE = resource_path(os.path.join("assets", "config.json"))
-VERSION_FILE  = resource_path(os.path.join("assets", "version.txt"))
+from utils import resource_path, CONFIG_FILE, VERSION_FILE # pyright: ignore[reportMissingImports]
 
 def read_version():
     try:

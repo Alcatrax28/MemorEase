@@ -32,6 +32,7 @@ a = Analysis(
         'requests',
         'CTkMessagebox',
         'update_maker',
+        'utils.py',
     ],
     hookspath=[],
     hooksconfig={},
@@ -62,5 +63,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.ico',                  # icône intégrée à l'exe
+    icon='icon.ico',
 )
