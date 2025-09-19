@@ -19,9 +19,8 @@ from backup import run_backup
 from spinner_widget import SpinnerWidget
 from update_maker import check_for_update, download_update, launch_new_version # pyright: ignore[reportMissingImports]
 
+def resource_path(relative_path: str) -> str:
 
-
-def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
     except AttributeError:
@@ -82,7 +81,7 @@ class ModalWindow(ctk.CTkToplevel):
         self.lift()
 
         if icon_path:
-            self.tk.call('wm', 'iconbitmap', self._w, resource_path(icon_path))
+            self.iconbitmap(icon_path)
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<Unmap>", lambda e: self.after(100, self._restore_if_minimized))
@@ -101,13 +100,19 @@ class CancelFlag:
     def __init__(self):
         self.cancelled = False
 
-
 class UpdateWindow(ctk.CTkToplevel):
     def __init__(self, master, update_info):
         super().__init__(master)
         self.title("Mise à jour en cours")
         self.geometry("900x500")
-        self.tk.call('wm', 'iconbitmap', self._w, resource_path("icon.ico"))
+        ico_path = os.path.abspath(resource_path("icon.ico"))
+        self.iconbitmap(ico_path)
+
+
+        # Rendre la fenêtre modale
+        self.transient(master)
+        self.grab_set()
+        self.focus_force()
 
         self.update_info = update_info
         self.cancel_flag = CancelFlag()
@@ -176,27 +181,6 @@ class UpdateWindow(ctk.CTkToplevel):
         self.finish_button.configure(state="normal")
         self.cancel_button.configure(state="disabled")
 
-def handle_update_if_needed(root):
-    update_info = check_for_update()
-    if not update_info:
-        CTkMessagebox(
-            title="Mise à jour",
-            message="MemorEase est à jour",
-            icon="info"
-        )
-        return
-
-    msg = CTkMessagebox(
-        title="Mise à jour disponible",
-        message=f"Une nouvelle version ({update_info['new_version']}) est disponible.\nSouhaitez-vous la télécharger maintenant ?",
-        icon="info",
-        option_1="Télécharger maintenant",
-        option_2="Ignorer"
-    )
-
-    if msg.get() == "Télécharger maintenant":
-        UpdateWindow(root, update_info)
-
 class MainApp(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -219,31 +203,7 @@ class MainApp(ctk.CTk):
         self.title(title)
         self.geometry("400x300")
         self.resizable(False, False)
-
-        self.handle_update_if_needed()
-
-    def handle_update_if_needed(self):
-        update_info = check_for_update()
-        if not update_info:
-            # Debug uniquement
-            CTkMessagebox(
-                title="Mise à jour",
-                message="MemorEase est à jour.",
-                icon="info"
-            )
-            return
-
-        msg = CTkMessagebox(
-            title="Mise à jour disponible",
-            message=f"Une nouvelle version ({update_info['new_version']}) est disponible.\nSouhaitez-vous la télécharger maintenant ?",
-            icon="info",
-            option_1="Télécharger maintenant",
-            option_2="Ignorer"
-        )
-
-        if msg.get() == "Télécharger maintenant":
-            UpdateWindow(self, update_info)
-    
+   
     def _open_settings(self):
         if self.secondary_window is None or not tk.Toplevel.winfo_exists(self.secondary_window):
             self.secondary_window = SettingsADBWindow(
@@ -256,7 +216,8 @@ class MainApp(ctk.CTk):
             self.secondary_window.lift()
             self.secondary_window.focus_force()
             self.secondary_window.grab_set()
-            self.tk.call('wm', 'iconbitmap', self._w, resource_path("icon.ico"))
+            ico_path = os.path.abspath(resource_path("icon.ico"))
+            self.iconbitmap(ico_path)
     
     def _load_version(self):
         try:
@@ -352,6 +313,41 @@ class MainApp(ctk.CTk):
                 self.secondary_window.focus_set()
             except Exception as e:
                 print(f"[ERREUR] Impossible de restaurer la fenêtre secondaire : {e}")
+
+    def handle_update_if_needed(self):
+        update_info, local_version, remote_version = check_for_update()
+
+        if remote_version is None:
+            CTkMessagebox(
+                title="Mise à jour",
+                message="Impossible de vérifier les mises à jour (connexion ou fichier indisponible).",
+                icon="warning"
+            )
+            return
+
+        if not update_info:
+            CTkMessagebox(
+                title="Mise à jour",
+                message=f"Version actuelle : {local_version}\nVersion disponible : {remote_version}\n\nMemorEase est à jour.",
+                icon="info"
+            )
+            return
+
+        msg = CTkMessagebox(
+            title="Mise à jour disponible",
+            message=(
+                f"Version actuelle : {local_version}\n"
+                f"Version disponible : {update_info['new_version']}\n\n"
+                "Souhaitez-vous télécharger et installer la mise à jour ?"
+            ),
+            icon="info",
+            option_1="Télécharger maintenant",
+            option_2="Ignorer"
+        )
+
+        if msg.get() == "Télécharger maintenant":
+            win = UpdateWindow(self, update_info)
+            win.wait_window()
 
 class SettingsADBWindow(ModalWindow):
     def __init__(self, master, download_photos=True, download_videos=True):
@@ -963,8 +959,8 @@ class ChangelogWindow(ctk.CTkToplevel):
         self.transient(master)
         self.focus_set()
         self.lift()
-        self.tk.call('wm', 'iconbitmap', self._w, resource_path("icon.ico"))
-        
+        ico_path = os.path.abspath(resource_path("icon.ico"))
+        self.iconbitmap(ico_path)
 
         # Choix de la police
         changelog_font = ctk.CTkFont(family="IBM Plex Mono", size=12)
@@ -982,8 +978,6 @@ class ChangelogWindow(ctk.CTkToplevel):
             self.textbox.insert("0.0", f"Erreur lors du chargement du changelog : \n{e}")
 
         self.textbox.configure(state="disabled") # Lecture seule
-
-
 
 if __name__ == "__main__":
 

@@ -6,8 +6,7 @@ import sys
 import subprocess
 import json
 
-TEST_LOCAL = False # Version publique = False ; Debug et test local = True
-
+TEST_LOCAL = False
 LATEST_JSON_URL = "https://raw.githubusercontent.com/Alcatrax28/MemorEase/main/latest.json"
 TEMP_EXE_NAME = "MemorEase_Update.exe"
 
@@ -30,7 +29,6 @@ def get_remote_info():
     except Exception:
         return None
 
-
 def normalize_version(v):
     try:
         return tuple(int(x) for x in v.strip().split("."))
@@ -44,7 +42,7 @@ def check_for_update():
     local = get_local_version()
     remote_data = get_remote_info()
     if not remote_data:
-        return None
+        return None, local, None
 
     remote_version = remote_data.get("version", "0.0.0")
     if is_update_available(local, remote_version):
@@ -53,8 +51,9 @@ def check_for_update():
             "url": remote_data.get("url"),
             "changelog": remote_data.get("changelog", []),
             "mandatory": remote_data.get("mandatory", False)
-        }
-    return None
+        }, local, remote_version
+
+    return None, local, remote_version
 
 def download_update(url, log_callback=None, progress_callback=None, cancel_flag=None):
     try:
@@ -87,4 +86,4 @@ def launch_new_version(new_exe_path, log_callback=None):
         return False
     if log_callback: log_callback("Lancement de la nouvelle version...")
     subprocess.Popen([new_exe_path], shell=True)
-    sys.exit(0)
+    os._exit(0)  # Fermeture immédiate

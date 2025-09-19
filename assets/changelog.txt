@@ -1,3 +1,7 @@
+Version 0.1.1 (Alpha)
+-------------
+• Suppression de la vérification automatique de mise à jour, déploiement via menu manuellement pour éviter les parasites et renforcer l'ergonomie.
+
 Version 0.1.0 (Alpha)
 -------------
 • Passage à une installation via setup pour gestion des polices d'écriture personnalisées.
