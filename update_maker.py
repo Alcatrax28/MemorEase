@@ -1,9 +1,9 @@
 import os
-import requests # pyright: ignore[reportMissingModuleSource]
+import requests  # pyright: ignore[reportMissingModuleSource]
 import tempfile
 import subprocess
 import json
-from utils import resource_path, VERSION_FILE # pyright: ignore[reportMissingImports]
+from utils import resource_path, VERSION_FILE  # pyright: ignore[reportMissingImports]
 
 # Chemin vers version.txt (même logique que dans main.py)
 VERSION_FILE = resource_path(os.path.join("assets", "version.txt"))
@@ -20,6 +20,7 @@ def get_local_version():
     except FileNotFoundError:
         return "0.0.0"
 
+# --- Lecture des infos distantes ---
 def get_remote_info():
     try:
         if TEST_LOCAL:
@@ -32,6 +33,7 @@ def get_remote_info():
     except Exception:
         return None
 
+# --- Comparaison des versions ---
 def normalize_version(v):
     try:
         return tuple(int(x) for x in v.strip().split("."))
@@ -41,6 +43,7 @@ def normalize_version(v):
 def is_update_available(local_version, remote_version):
     return normalize_version(remote_version) > normalize_version(local_version)
 
+# --- Vérification de mise à jour ---
 def check_for_update():
     local = get_local_version()
     remote_data = get_remote_info()
@@ -58,9 +61,17 @@ def check_for_update():
 
     return None, local, remote_version
 
+# --- Téléchargement du fichier de mise à jour ---
 def download_update(url, log_callback=None, progress_callback=None, cancel_flag=None):
     try:
         r = requests.get(url, stream=True, timeout=10)
+
+        # Vérifie que le lien pointe bien vers un fichier binaire
+        content_type = r.headers.get("Content-Type", "")
+        if "text/html" in content_type:
+            if log_callback: log_callback("Le lien ne pointe pas vers un fichier exécutable.")
+            return None
+
         total_size = int(r.headers.get('content-length', 0))
         temp_path = os.path.join(tempfile.gettempdir(), TEMP_EXE_NAME)
 
@@ -76,6 +87,11 @@ def download_update(url, log_callback=None, progress_callback=None, cancel_flag=
                     if progress_callback:
                         progress_callback(downloaded, total_size)
 
+        # Vérifie que le fichier est suffisamment grand pour être valide
+        if os.path.getsize(temp_path) < 1024:
+            if log_callback: log_callback("Fichier téléchargé trop petit ou invalide.")
+            return None
+
         if log_callback: log_callback(f"Téléchargement terminé : {temp_path}")
         return temp_path
 
@@ -83,10 +99,16 @@ def download_update(url, log_callback=None, progress_callback=None, cancel_flag=
         if log_callback: log_callback(f"Erreur : {e}")
         return None
 
+# --- Lancement de la nouvelle version ---
 def launch_new_version(new_exe_path, log_callback=None):
     if not os.path.exists(new_exe_path):
         if log_callback: log_callback("Fichier de mise à jour introuvable.")
         return False
+
+    if os.path.getsize(new_exe_path) < 1024:
+        if log_callback: log_callback("Fichier de mise à jour invalide ou corrompu. Abandon du lancement.")
+        return False
+
     if log_callback: log_callback("Lancement de la nouvelle version...")
     subprocess.Popen([new_exe_path], shell=True)
     os._exit(0)  # Fermeture immédiate pour éviter le code 5 d'Inno Setup
