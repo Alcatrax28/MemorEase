@@ -1,0 +1,70 @@
+Version 1.6.1.1
+-------------
+• Patch Day1 suite à une erreur critique au lancement dans le module de mise à jour.
+
+Version 1.6.1
+-------------
+• Correction des interactions entre les fenêtres qui provoquait des problèmes de mise au premier plan et de réduction de fenêtres.
+• Ajustements relatifs au système de mises à jour en ligne.
+
+Version 1.6.0
+-------------
+• Déploiement du système de mise à jour automatique via GitHub.
+• Correction de la console de la fonction ADB qui affichait par erreur d'anciens messages de debug.
+
+Version 1.5.6
+-------------
+• Correction du tressaillement du spinner anti-freeze.
+
+Version 1.5.5
+-------------
+• Ajout de ADB.exe et des dll associés aux assets de l'application.
+• Correction du script ADB qui pouvait ne pas se lancer.
+• Déploiement de l'installateur de l'application pour une utilisation tierce.
+
+Version 1.5.4
+-------------
+• Ajout d'une confirmation des chemins pour le module de tri.
+• Correction du script de renommage des fichiers.
+
+Version 1.5.3
+-------------
+• Ajout de la fonctionnalité de backup vers un disque dur.
+• Harmonisation des fenêtres et affichages.
+• Correction d'erreurs de script.
+
+Version 1.5.2
+-------------
+• Ajout du changelog.
+• Modification du comportement du spinner durant la sauvegarde des fichiers.
+• Modification du comportement du spinner durant le téléchargement des fichiers.
+
+Version 1.5.1
+-------------
+• Ajout de la fonction de tri après téléchargement.
+• Clarification des noms de chemins par défaut.
+• Correction d'erreurs de script.
+
+Version 1.5.0
+-------------
+• Amélioration du rendu GUI via CTK (auparavant TK).
+• Refonte du script de téléchargement pour une gestion plus efficace et rapide.
+• Refonte de l'écran d'accueil qui contiendra uniquement les fonctions essentielles.
+• Ajout d'une fenêtre de paramétrage des chemins de sauvegarde déclenchée uniquement au besoin.
+• Simplification des configurations des chemins et sauvegarde dynamique des emplacements.
+• Harmonisation des fenêtres de téléchargement.
+• Révision et corrections des options dynamiques d'information (console, barre de progression, compteur de fichiers).
+• Correction d'erreurs de script.
+
+
+
+
+
+
+
+
+
+
+
+
+

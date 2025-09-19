@@ -1,0 +1,12 @@
+# Fichiers temporaires et perso
+*.bat
+*.iss
+
+# Dossiers à ignorer
+__pycache__
+build/
+dist/
+
+# Fichiers système
+*.DS_Store
+Thumbs.db
