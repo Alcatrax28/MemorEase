@@ -1,3 +1,9 @@
+Version 0.1.0 (Alpha)
+-------------
+• Passage à une installation via setup pour gestion des polices d'écriture personnalisées.
+• Premier déploiement stable pour test de fonction de mise à jour.
+• Rédaction du ReadMe (disponible sur le GitHub du projet).
+
 Version 0.0.1 (Alpha)
 -------------
 • Publication sur GitHub pour préparer la fonction de mise à jour automatique au lancement.
