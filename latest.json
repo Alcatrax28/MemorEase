@@ -2,11 +2,9 @@
   "version": "0.1.1",
   "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v0.1.1/MemorEase_0.1.1_Setup.exe",
   "changelog": [
-    "Fenêtre de mise à jour désormais modale",
-    "Fermeture immédiate de l'application avant installation pour éviter l'erreur code 5",
-    "Vérification des mises à jour uniquement via le menu Options",
-    "Affichage des versions locale et distante dans la boîte de dialogue",
-    "Nettoyage du code et suppression des doublons"
+    "Correction d'un bug dans config.json",
+    "Optimisation du système de mise à jour",
+    "Publication de la notice utilisateur"
   ],
   "mandatory": false
 }

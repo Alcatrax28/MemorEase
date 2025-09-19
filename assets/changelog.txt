@@ -1,3 +1,9 @@
+Version 0.1.2 (Alpha)
+• Correction d'un bug dans config.json.
+• Optimisation et nettoyage des scripts.
+• Publication de la notice utilisateur.
+• Optimisation du système de mise à jour.
+
 Version 0.1.1 (Alpha)
 -------------
 • Suppression de la vérification automatique de mise à jour, déploiement via menu manuellement pour éviter les parasites et renforcer l'ergonomie.
