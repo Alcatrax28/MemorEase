@@ -6,6 +6,7 @@
 __pycache__
 build/
 dist/
+installer/
 
 # Fichiers système
 *.DS_Store

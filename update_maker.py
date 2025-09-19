@@ -6,7 +6,7 @@ import sys
 import subprocess
 import json
 
-TEST_LOCAL = True # Version publique = False ; Debug et test local = True
+TEST_LOCAL = False # Version publique = False ; Debug et test local = True
 
 LATEST_JSON_URL = "https://raw.githubusercontent.com/Alcatrax28/MemorEase/main/latest.json"
 TEMP_EXE_NAME = "MemorEase_Update.exe"
