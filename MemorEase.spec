@@ -18,7 +18,6 @@ a = Analysis(
 
         # --- fichiers racine de assets ---
         ('assets/changelog.txt', 'assets'),
-        ('assets/config.json', 'assets'),
         ('assets/version.txt', 'assets'),
 
         # --- icône ---
@@ -32,7 +31,8 @@ a = Analysis(
         'requests',
         'CTkMessagebox',
         'update_maker',
-        'utils.py',
+        'utils',
+        'config_manager',
     ],
     hookspath=[],
     hooksconfig={},

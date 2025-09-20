@@ -1,57 +1,30 @@
-import customtkinter as ctk # pyright: ignore[reportMissingImports]
+import customtkinter as ctk                                                         # pyright: ignore[reportMissingImports]
 import tkinter as tk
-from tkinter import filedialog, scrolledtext
+from tkinter import filedialog, scrolledtext, TclError
 import os
 import json
-import getpass
-import string
 import threading
-from CTkMessagebox import CTkMessagebox # pyright: ignore[reportMissingImports]
+from CTkMessagebox import CTkMessagebox                                             # pyright: ignore[reportMissingImports]
 from adb_tools import run_adb_download
 from sort_tools import sort_and_save_files
 from backup import run_backup
 from spinner_widget import SpinnerWidget
-from update_maker import check_for_update, download_update, launch_new_version # pyright: ignore[reportMissingImports]
-from utils import resource_path, CONFIG_FILE, VERSION_FILE # pyright: ignore[reportMissingImports]
+from update_maker import check_for_update, download_update, launch_new_version
+from config_manager import load_paths, save_paths, get_default_paths                # pyright: ignore[reportMissingImports]
 
-def read_version():
-    try:
-        with open(VERSION_FILE, "r", encoding="utf-8") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        return ""
+from utils import (
+     resource_path, 
+     external_path,
+     CONFIG_FILE, 
+     VERSION_FILE,
+     read_version,
+     find_onedrive,
+     get_default_paths,
+     load_paths,
+     ensure_config_exists
+)
 
-def find_onedrive():
-    for drive in (f"{d}:\\" for d in string.ascii_uppercase):
-        users_dir = os.path.join(drive, "Users")
-        if not os.path.isdir(users_dir):
-            continue
-        # Parcourir chaque profil utilisateur
-        for user_folder in os.listdir(users_dir):
-            base = os.path.join(users_dir, user_folder)
-            if not os.path.isdir(base):
-                continue
-            # Chercher OneDrive / Onedrive dans ce profil
-            for name in ("OneDrive", "Onedrive", "onedrive"):
-                path = os.path.join(base, name)
-                if os.path.isdir(path):
-                    return path
-    return None
-
-def get_default_paths():
-    od = find_onedrive()
-    user = getpass.getuser()
-    if od:
-        save   = os.path.join(od, "Images", "Memorease_Downloads")
-        photos = os.path.join(od, "Images", "Photos")
-        videos = os.path.join(od, "Videos", "Mes videos")
-    else:
-        root_drive = os.getcwd().split(os.sep)[0] + "\\"
-        base       = os.path.join(root_drive, "Users", user)
-        save   = os.path.join(base, "Pictures", "Memorease_Downloads")
-        photos = os.path.join(base, "Pictures", "Photos")
-        videos = os.path.join(base, "Videos", "Mes videos")
-    return save, photos, videos
+ensure_config_exists()
 
 class ModalWindow(ctk.CTkToplevel):
     def __init__(self, master, title="Fenêtre", size="600x400", icon_path=None):
@@ -64,11 +37,54 @@ class ModalWindow(ctk.CTkToplevel):
         self.focus_force()
         self.lift()
 
-        if icon_path:
-            self.iconbitmap(icon_path)
+        self._safe_set_icon(icon_path)
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<Unmap>", lambda e: self.after(100, self._restore_if_minimized))
+
+    def _safe_set_icon(self, icon_path):
+        # 1) Si un chemin est fourni, tenter “as-is” s’il est absolu
+        tried = []
+
+        def try_icon(path):
+            if not path:
+                return False
+            try:
+                self.iconbitmap(path)
+                return True
+            except Exception as e:
+                tried.append((path, repr(e)))
+                return False
+
+        # Résolution des candidats:
+        candidates = []
+
+        # a) Celui passé en paramètre
+        if icon_path:
+            if os.path.isabs(icon_path):
+                candidates.append(icon_path)
+            else:
+                # Relatif → essayer dans _MEIPASS (resource_path)
+                candidates.append(resource_path(icon_path))
+                # Essayer à côté de l’exe/script (external)
+                candidates.append(external_path(icon_path))
+                # Essayer relatif au cwd en dernier recours
+                candidates.append(os.path.abspath(icon_path))
+
+        # b) Si rien n’a été fourni, essayer quelques emplacements connus
+        else:
+            for rel in ("assets/icon.ico", "icon.ico"):
+                candidates.append(resource_path(rel))
+                candidates.append(external_path(rel))
+
+        # Exécuter
+        for c in candidates:
+            if os.path.exists(c) and try_icon(c):
+                return
+
+        # Échec → ne pas bloquer l’UI. Optionnel: log en console
+        # print("Icon load failed, tried:", tried)
+        # Aucun raise ici: on laisse la fenêtre continuer sans icône.
 
     def _restore_if_minimized(self):
         if self.state() == "iconic":
@@ -77,8 +93,12 @@ class ModalWindow(ctk.CTkToplevel):
             self.focus_force()
 
     def _on_close(self):
-        self.grab_release()
+        try:
+            self.grab_release()
+        except TclError:
+            pass
         self.destroy()
+
 
 class CancelFlag:
     def __init__(self):
@@ -101,7 +121,12 @@ class UpdateWindow(ctk.CTkToplevel):
         self.update_info = update_info
         self.cancel_flag = CancelFlag()
 
-        self._create_widgets()
+        try:
+            self._create_widgets()
+        except Exception as e:
+            CTkMessagebox(title="Erreur UI", message=str(e), icon="cancel")
+            print("Erreur _create_widgets UpdateWindow", repr(e))
+            
         threading.Thread(target=self._start_update, daemon=True).start()
 
     def _create_widgets(self):
@@ -335,58 +360,32 @@ class MainApp(ctk.CTk):
 
 class SettingsADBWindow(ModalWindow):
     def __init__(self, master, download_photos=True, download_videos=True):
-        super().__init__(master, title="Paramètres de sauvegarde", size="750x400", icon_path="icon.ico")
+        super().__init__(master,
+                         title="Paramètres de sauvegarde",
+                         size="750x400",
+                         icon_path="icon.ico")
         
         self.download_photos = download_photos
         self.download_videos = download_videos
 
-        self._load_config()
-        self._create_widgets()
+        save, photos, videos = load_paths()
+        self.save_var   = tk.StringVar(value=save)
+        self.photos_var = tk.StringVar(value=photos)
+        self.videos_var = tk.StringVar(value=videos)
+        
+        try:
+            self._create_widgets()
+        except Exception as e:
+            CTkMessagebox(title="ErreurUI", message=str(e), icon="cancel")
+            print("Erreur _create_widgets SettingsADBWindow", repr(e))
    
-    def _load_config(self):
-        # Toujours utiliser resource_path pour être compatible .py et .exe
-        config_path = resource_path(os.path.join("assets", "config.json"))
-        self.paths = None
-
-        if os.path.isfile(config_path):
-            try:
-                with open(config_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                save   = data.get("save")
-                photos = data.get("photos")
-                videos = data.get("videos")
-
-                if all(isinstance(p, str) and p for p in (save, photos, videos)):
-                    self.paths = (save, photos, videos)
-            except (json.JSONDecodeError, IOError) as e:
-                print(f"[ERREUR] Impossible de lire config.json : {e}")
-                self.paths = None
-        else:
-            print(f"[ERREUR] Fichier introuvable : {config_path}")
-
     def _create_widgets(self):
         frame = ctk.CTkFrame(self)
         frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # Configuration des colonnes pour que la colonne 1 (Entry) s'étire
         frame.grid_columnconfigure(0, weight=0)  # Label
         frame.grid_columnconfigure(1, weight=1)  # Entry
         frame.grid_columnconfigure(2, weight=0)  # Bouton
-
-        self.save_var   = tk.StringVar()
-        self.photos_var = tk.StringVar()
-        self.videos_var = tk.StringVar()
-
-        if self.paths:
-            self.save_var.set(self.paths[0])
-            self.photos_var.set(self.paths[1])
-            self.videos_var.set(self.paths[2])
-        else:
-            try:
-                self._restore_defaults()
-            except Exception as e:
-                print("Erreur lors du chargement des chemins par défaut :", e)
 
         self.restore_button = ctk.CTkButton(
             frame,
@@ -405,7 +404,7 @@ class SettingsADBWindow(ModalWindow):
         for i, (text, var) in enumerate(labels, start=1):
             ctk.CTkLabel(frame, text=text).grid(row=i, column=0, sticky="w", pady=5)
             entry = ctk.CTkEntry(frame, textvariable=var)
-            entry.grid(row=i, column=1, padx=5, pady=5, sticky="ew")  # s'étire horizontalement
+            entry.grid(row=i, column=1, padx=5, pady=5, sticky="ew")
             ctk.CTkButton(
                 frame,
                 text="Parcourir",
@@ -426,7 +425,6 @@ class SettingsADBWindow(ModalWindow):
             var.trace_add("write", lambda *_: self._update_launch_button())
         self._update_launch_button()
 
-
     def _browse(self, var):
         path = filedialog.askdirectory()
         if path:
@@ -445,19 +443,15 @@ class SettingsADBWindow(ModalWindow):
         self.launch_button.configure(state=state)
 
     def _launch(self):
-        data = {
-            "save":   self.save_var.get(),
-            "photos": self.photos_var.get(),
-            "videos": self.videos_var.get()
-        }
-        # Sauvegarde de la configuration dans config.json
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
+        # Sauvegarde via ConfigManager
+        save_paths(
+            self.save_var.get(),
+            self.photos_var.get(),
+            self.videos_var.get()
+        )
 
-        # Libérer le grab modal AVANT fermeture
+        # Libérer le grab modal avant fermeture
         self.grab_release()
-
-        # Supprimer tout bind éventuel qui redonne le focus
         self.unbind("<FocusIn>")
 
         # Fermer la SettingsADBWindow
@@ -465,34 +459,41 @@ class SettingsADBWindow(ModalWindow):
         self.destroy()
 
         # Ouvrir la fenêtre ADB juste après destruction
-        self.master.open_modal(ADBWindow,
-                               download_photos=self.download_photos,
-                               download_videos=self.download_videos)     
+        self.master.open_modal(
+            ADBWindow,
+            save_path=self.save_var.get(),
+            photos_path=self.photos_var.get(),
+            videos_path=self.videos_var.get(),
+            
+            download_photos=self.download_photos,
+            download_videos=self.download_videos
+        )
 
 class ADBWindow(ModalWindow):
-    def __init__(self, master, download_photos=True, download_videos=True):
+    def __init__(self, master, save_path, photos_path, videos_path,
+                 download_photos=True, download_videos=True):
         super().__init__(master, title="Téléchargement ADB", size="900x500", icon_path="icon.ico")
         
+        self.save_path = save_path
+        self.photos_path = photos_path
+        self.videos_path = videos_path
+
         self.download_photos = download_photos
         self.download_videos = download_videos
         
         self.cancel_flag = CancelFlag()
 
-        self._load_config()
-        self._create_widgets()
+        try:
+            self._create_widgets()
+        except Exception as e:
+            CTkMessagebox(title="Erreur UI", message=str(e), icon="cancel")
+            print("Erreur _create_widgets ADBWindow", repr(e))
 
         self.spinner = SpinnerWidget(self)
         self.spinner.start()  
 
         threading.Thread(target=self._start_download, daemon=True).start()
     
-    def _load_config(self):
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        self.save_path   = data.get("save", "")
-        self.photos_path = data.get("photos", "")
-        self.videos_path = data.get("videos", "")
-
     def _create_widgets(self):
         self.progress_label = ctk.CTkLabel(self, text="Progression : 0 / 0")
         self.progress_label.pack(pady=(20, 5))
@@ -566,103 +567,116 @@ class ADBWindow(ModalWindow):
 class SettingsSortWindow(ModalWindow):
     def __init__(self, master):
         super().__init__(master, title="Paramètres de tri", size="750x400", icon_path="icon.ico")
-        
-        config_path = resource_path("assets/config.json")
 
-        with open(config_path, "r", encoding="utf-8") as f:
-            self.config_data = json.load(f)
+        save, photos, videos = load_paths()
+        self.var_save   = tk.StringVar(value=save)
+        self.var_photos = tk.StringVar(value=photos)
+        self.var_videos = tk.StringVar(value=videos)
 
-        self.var_save   = ctk.StringVar(value=self.config_data.get("save", ""))
-        self.var_photos = ctk.StringVar(value=self.config_data.get("photos", ""))
-        self.var_videos = ctk.StringVar(value=self.config_data.get("videos", ""))
+        try:
+            self._create_widgets()
+        except Exception as e:
+            CTkMessagebox(title="Erreur UI", message=str(e), icon="cancel")
+            print("Erreur _create_widgets SettingsSortWindow", repr(e))
 
-        self._create_widgets()
-        self._update_save_button_state()
-
-        for var in (self.var_save, self.var_photos, self.var_videos):
-            var.trace_add("write", lambda *args: self._update_save_button_state())
-    
     def _create_widgets(self):
         frame = ctk.CTkFrame(self)
         frame.pack(fill="both", expand=True, padx=20, pady=20)
         frame.grid_columnconfigure(1, weight=1)
 
+        # Bouton rétablir
+        ctk.CTkButton(
+            frame,
+            text="Rétablir valeurs par défaut",
+            command=self._restore_defaults,
+            fg_color="grey",
+            width=220
+        ).grid(row=0, column=0, columnspan=3, pady=(0, 20))
+
         # Champ téléchargement
-        ctk.CTkLabel(frame, text="Emplacement des médias à renommer et trier :").grid(row=0, column=0, sticky="w", pady=5)
-        entry_save = ctk.CTkEntry(frame, textvariable=self.var_save, width=400)
-        entry_save.grid(row=0, column=1, sticky="ew", padx=5)
-        ctk.CTkButton(frame, text="Parcourir", command=self._browse_save).grid(row=0, column=2, padx=5)
+        ctk.CTkLabel(frame, text="Emplacement des médias à renommer et trier :").grid(row=1, column=0, sticky="w", pady=5)
+        ctk.CTkEntry(frame, textvariable=self.var_save, width=400).grid(row=1, column=1, sticky="ew", padx=5)
+        ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_save)).grid(row=1, column=2, padx=5)
 
         # Champ photos
-        ctk.CTkLabel(frame, text="Emplacement de destination pour les photos :").grid(row=1, column=0, sticky="w", pady=5)
-        entry_photos = ctk.CTkEntry(frame, textvariable=self.var_photos, width=400)
-        entry_photos.grid(row=1, column=1, sticky="ew", padx=5)
-        ctk.CTkButton(frame, text="Parcourir", command=self._browse_photos).grid(row=1, column=2, padx=5)
+        ctk.CTkLabel(frame, text="Emplacement de destination pour les photos :").grid(row=2, column=0, sticky="w", pady=5)
+        ctk.CTkEntry(frame, textvariable=self.var_photos, width=400).grid(row=2, column=1, sticky="ew", padx=5)
+        ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_photos)).grid(row=2, column=2, padx=5)
 
         # Champ vidéos
-        ctk.CTkLabel(frame, text="Emplacement de destination pour les vidéos :").grid(row=2, column=0, sticky="w", pady=5)
-        entry_videos = ctk.CTkEntry(frame, textvariable=self.var_videos, width=400)
-        entry_videos.grid(row=2, column=1, sticky="ew", padx=5)
-        ctk.CTkButton(frame, text="Parcourir", command=self._browse_videos).grid(row=2, column=2, padx=5)
+        ctk.CTkLabel(frame, text="Emplacement de destination pour les vidéos :").grid(row=3, column=0, sticky="w", pady=5)
+        ctk.CTkEntry(frame, textvariable=self.var_videos, width=400).grid(row=3, column=1, sticky="ew", padx=5)
+        ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_videos)).grid(row=3, column=2, padx=5)
 
-        # Bouton enregistrer
-        self.btn_save = ctk.CTkButton(self, text="Enregistrer", command=self._save_config)
-        self.btn_save.pack(pady=(0, 20))
+        # Bouton lancer
+        self.launch_button = ctk.CTkButton(
+            self,
+            text="Lancer le tri",
+            command=self._launch,
+            state="disabled",
+            width=250
+        )
+        self.launch_button.pack(pady=20)
 
-    def _browse_save(self):
-        path = ctk.filedialog.askdirectory(title="Sélectionner dossier de tri")
+        for var in (self.var_save, self.var_photos, self.var_videos):
+            var.trace_add("write", lambda *_: self._update_launch_button())
+        self._update_launch_button()
+
+    def _browse(self, var):
+        path = filedialog.askdirectory()
         if path:
-            self.var_save.set(path.replace("/", "\\"))
+            var.set(path.replace("/", "\\"))
 
-    def _browse_photos(self):
-        path = ctk.filedialog.askdirectory(title="Sélectionner dossier Photos")
-        if path:
-            self.var_photos.set(path.replace("/", "\\"))
+    def _restore_defaults(self):
+        save, photos, videos = get_default_paths()
+        self.var_save.set(save)
+        self.var_photos.set(photos)
+        self.var_videos.set(videos)
 
-    def _browse_videos(self):
-        path = ctk.filedialog.askdirectory(title="Sélectionner dossier Vidéos")
-        if path:
-            self.var_videos.set(path.replace("/", "\\"))
+    def _update_launch_button(self):
+        filled = all(v.get().strip() for v in (self.var_save, self.var_photos, self.var_videos))
+        self.launch_button.configure(state="normal" if filled else "disabled")
 
-    def _update_save_button_state(self):
-        ok = all(v.get().strip() for v in (self.var_save, self.var_photos, self.var_videos))
-        self.btn_save.configure(state="normal" if ok else "disabled")
+    def _launch(self):
+        save_paths(
+            self.var_save.get(),
+            self.var_photos.get(),
+            self.var_videos.get()
+        )
 
-    def _save_config(self):
-        self.config_data["save"]   = self.var_save.get().strip()
-        self.config_data["photos"] = self.var_photos.get().strip()
-        self.config_data["videos"] = self.var_videos.get().strip()
-        with open(resource_path("assets/config.json"), "w", encoding="utf-8") as f:
-            json.dump(self.config_data, f, indent=4, ensure_ascii=False)
-        
         self.grab_release()
+        self.unbind("<FocusIn>")
         self.master.secondary_window = None
         self.destroy()
 
-        self.master.open_modal(SortWindow)
+        self.master.open_modal(
+            SortWindow,
+            save_path=self.var_save.get(),
+            photos_path=self.var_photos.get(),
+            videos_path=self.var_videos.get()
+        )
 
 class SortWindow(ModalWindow):
-    def __init__(self, master):
+    def __init__(self, master, save_path, photos_path, videos_path):
         super().__init__(master, title="Tri et sauvegarde", size="900x500", icon_path="icon.ico")
-        
+
+        self.save_path = save_path
+        self.photos_path = photos_path
+        self.videos_path = videos_path
+
         self.cancel_flag = CancelFlag()
 
-        self._load_config()
-        self._create_widgets()
+        try:
+            self._create_widgets()
+        except Exception as e:
+            CTkMessagebox(title="Erreur UI", message=str(e), icon="cancel")
+            print("Erreur _create_widgets SortWindow", repr(e))
 
         self.spinner = SpinnerWidget(self)
         self.spinner.start()
 
-        # Lancer le tri dans un thread séparé
         threading.Thread(target=self._start_sort, daemon=True).start()
     
-    def _load_config(self):
-        with open(resource_path("assets/config.json"), "r", encoding="utf-8") as f:
-            data = json.load(f)
-        self.save_path   = data.get("save", "")
-        self.photos_path = data.get("photos", "")
-        self.videos_path = data.get("videos", "")
-
     def _create_widgets(self):
         self.progress_label = ctk.CTkLabel(self, text="Progression : 0 / 0")
         self.progress_label.pack(pady=(20, 5))
@@ -729,7 +743,7 @@ class SortWindow(ModalWindow):
         )
 
         self.spinner.stop("✅")
-        self.after(0, lambda: self.progress_label.configure(text="Tri terminé"))
+        self.after(0, lambda: self.progress_label.configure(text="✅ Tri terminé"))
         self.after(0, lambda: self.finish_button.configure(state="normal"))
         self.after(0, lambda: self.cancel_button.configure(state="disabled"))
 
@@ -737,118 +751,126 @@ class SettingsBackupWindow(ModalWindow):
     def __init__(self, master):
         super().__init__(master, title="Paramètres du backup HDD", size="750x400", icon_path="icon.ico")
 
-        with open(resource_path("assets/config.json"), "r", encoding="utf-8") as f:
-            self.config_data = json.load(f)
+        # Charger chemins existants
+        save, photos, videos = load_paths()
+        # Charger backup depuis config.json si présent
+        try:
+            with open(resource_path("assets/config.json"), "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            backup = cfg.get("backup", "")
+        except Exception:
+            backup = ""
 
-        self.var_photos = ctk.StringVar(value=self.config_data.get("photos", ""))
-        self.var_videos = ctk.StringVar(value=self.config_data.get("videos", ""))
-        self.var_backup = ctk.StringVar(value=self.config_data.get("backup", ""))
+        self.var_photos = tk.StringVar(value=photos)
+        self.var_videos = tk.StringVar(value=videos)
+        self.var_backup = tk.StringVar(value=backup)
 
-        self._create_widgets()
-        self._update_save_button_state()
-    
+        try:
+            self._create_widgets()
+        except Exception as e:
+            CTkMessagebox(title="Erreur UI", message=str(e), icon="cancel")
+            print("Erreur _create_widgets SettingsBackupWindow")
+
     def _create_widgets(self):
         frame = ctk.CTkFrame(self)
         frame.pack(fill="both", expand=True, padx=20, pady=20)
+        frame.grid_columnconfigure(1, weight=1)
 
-        frame.grid_columnconfigure(1, weight=1)  # colonne des Entry extensible
+        # Bouton rétablir
+        ctk.CTkButton(
+            frame,
+            text="Rétablir valeurs par défaut",
+            command=self._restore_defaults,
+            fg_color="grey",
+            width=220
+        ).grid(row=0, column=0, columnspan=3, pady=(0, 20))
 
         # Photos
-        ctk.CTkLabel(frame, text="Emplacement des photos existantes :").grid(row=0, column=0, sticky="w", pady=5)
-        entry_ph = ctk.CTkEntry(frame, textvariable=self.var_photos, width=400)
-        entry_ph.grid(row=0, column=1, sticky="ew", padx=5)
-        ctk.CTkButton(frame, text="Parcourir", command=self._browse_photos).grid(row=0, column=2, padx=5)
+        ctk.CTkLabel(frame, text="Emplacement des photos existantes :").grid(row=1, column=0, sticky="w", pady=5)
+        ctk.CTkEntry(frame, textvariable=self.var_photos, width=400).grid(row=1, column=1, sticky="ew", padx=5)
+        ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_photos)).grid(row=1, column=2, padx=5)
 
         # Vidéos
-        ctk.CTkLabel(frame, text="Emplacement des vidéos existantes :").grid(row=1, column=0, sticky="w", pady=5)
-        entry_vid = ctk.CTkEntry(frame, textvariable=self.var_videos, width=400)
-        entry_vid.grid(row=1, column=1, sticky="ew", padx=5)
-        ctk.CTkButton(frame, text="Parcourir", command=self._browse_videos).grid(row=1, column=2, padx=5)
+        ctk.CTkLabel(frame, text="Emplacement des vidéos existantes :").grid(row=2, column=0, sticky="w", pady=5)
+        ctk.CTkEntry(frame, textvariable=self.var_videos, width=400).grid(row=2, column=1, sticky="ew", padx=5)
+        ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_videos)).grid(row=2, column=2, padx=5)
 
         # Backup
-        ctk.CTkLabel(frame, text="Dossier de backup externe :").grid(row=2, column=0, sticky="w", pady=5)
+        ctk.CTkLabel(frame, text="Dossier de backup externe :").grid(row=3, column=0, sticky="w", pady=5)
+        self.entry_bu = ctk.CTkEntry(frame, textvariable=self.var_backup, width=400,
+                                     border_color="green" if self.var_backup.get().strip() else "red")
+        self.entry_bu.grid(row=3, column=1, sticky="ew", padx=5)
+        ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_backup, is_backup=True)).grid(row=3, column=2, padx=5)
 
-        # Bordure rouge si vide
-        backup_path = self.var_backup.get().strip()
-        if backup_path:
-            self.entry_bu = ctk.CTkEntry(
-                frame,
-                textvariable=self.var_backup,
-                width=400
-            )
-        else:
-            self.entry_bu = ctk.CTkEntry(
-                frame,
-                textvariable=self.var_backup,
-                width=400,
-                border_color="red"
-            )
+        # Bouton lancer
+        self.launch_button = ctk.CTkButton(
+            self,
+            text="Lancer le backup",
+            command=self._launch,
+            state="disabled",
+            width=250
+        )
+        self.launch_button.pack(pady=20)
 
-        self.entry_bu.grid(row=2, column=1, sticky="ew", padx=5)
-        ctk.CTkButton(frame, text="Parcourir", command=self._browse_backup).grid(row=2, column=2, padx=5)
-
-        # Bouton enregistrer
-        self.btn_save = ctk.CTkButton(self, text="Enregistrer", command=self._save_config)
-        self.btn_save.pack(pady=(0, 20))
-
-
-        # Suivi des modifications
         for var in (self.var_photos, self.var_videos, self.var_backup):
-            var.trace_add("write", lambda *args: self._update_save_button_state())
+            var.trace_add("write", lambda *_: self._update_launch_button())
+        self._update_launch_button()
 
-    def _browse_photos(self):
-        path = ctk.filedialog.askdirectory(title="Sélectionner dossier Photos")
+    def _browse(self, var, is_backup=False):
+        path = filedialog.askdirectory()
         if path:
-            path = path.replace("/", "\\")
+            var.set(path.replace("/", "\\"))
+            if is_backup:
+                self.entry_bu.configure(border_color="green")
 
-            self.var_photos.set(path)
+    def _restore_defaults(self):
+        _, photos, videos = get_default_paths()
+        self.var_photos.set(photos)
+        self.var_videos.set(videos)
+        self.var_backup.set("")
+        self.entry_bu.configure(border_color="red")
 
-    def _browse_videos(self):
-        path = ctk.filedialog.askdirectory(title="Sélectionner dossier Vidéos")
-        if path:
-            path = path.replace("/", "\\")
+    def _update_launch_button(self):
+        filled = all(v.get().strip() for v in (self.var_photos, self.var_videos, self.var_backup))
+        self.launch_button.configure(state="normal" if filled else "disabled")
 
-            self.var_videos.set(path)
+    def _launch(self):
+        # Sauvegarde via ConfigManager + ajout du backup
+        try:
+            with open(resource_path("assets/config.json"), "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception:
+            cfg = {}
 
-    def _browse_backup(self):
-        path = ctk.filedialog.askdirectory(title="Sélectionner dossier Backup")
-        if path:
-            path = path.replace("/", "\\")
-
-            self.var_backup.set(path)
-            self.entry_bu.configure(border_color="green")
-
-    def _update_save_button_state(self):
-        # Active si tous les champs sont non vides
-        ok = all(v.get().strip() for v in (self.var_photos, self.var_videos, self.var_backup))
-        self.btn_save.configure(state="normal" if ok else "disabled")
-
-    def _save_config(self):
-        self.config_data["photos"] = self.var_photos.get().strip()
-        self.config_data["videos"] = self.var_videos.get().strip()
-        self.config_data["backup"] = self.var_backup.get().strip()
+        cfg["photos"] = self.var_photos.get().strip()
+        cfg["videos"] = self.var_videos.get().strip()
+        cfg["backup"] = self.var_backup.get().strip()
 
         with open(resource_path("assets/config.json"), "w", encoding="utf-8") as f:
-            json.dump(self.config_data, f, indent=4, ensure_ascii=False)
+            json.dump(cfg, f, indent=4, ensure_ascii=False)
 
         self.grab_release()
         self.unbind("<FocusIn>")
         self.master.secondary_window = None
         self.destroy()
-        self.master.open_modal(BackupWindow)
+
+        self.master.open_modal(
+            BackupWindow,
+            photos_path=self.var_photos.get(),
+            videos_path=self.var_videos.get(),
+            backup_path=self.var_backup.get()
+        )
+
 
 class BackupWindow(ModalWindow):
-    def __init__(self, master):
+    def __init__(self, master, photos_path, videos_path, backup_path):
         super().__init__(master, title="Exécution du backup", size="900x500", icon_path="icon.ico")
 
-        self.cancel_flag = CancelFlag()
+        self.photo_src = photos_path
+        self.video_src = videos_path
+        self.backup_dest = backup_path
 
-        # Charger config
-        with open(resource_path("assets/config.json"), "r", encoding="utf-8") as f:
-            cfg = json.load(f)
-        self.photo_src = cfg["photos"]
-        self.video_src = cfg["videos"]
-        self.backup_dest = cfg["backup"]
+        self.cancel_flag = CancelFlag()
 
         # Calcul du total de fichiers AVANT affichage
         def count_files(path):
@@ -856,6 +878,7 @@ class BackupWindow(ModalWindow):
             for _, _, files in os.walk(path):
                 total += len(files)
             return total
+
         self.total_files = count_files(self.photo_src) + count_files(self.video_src)
 
         # Widgets
@@ -870,7 +893,6 @@ class BackupWindow(ModalWindow):
         self.spinner.spinner_label.pack(pady=(0, 10))
         self.spinner.start()
 
-        # Console adaptative + alignement gauche
         self.console = scrolledtext.ScrolledText(
             self,
             height=18,
@@ -894,7 +916,6 @@ class BackupWindow(ModalWindow):
         )
         self.finish_button.grid(row=0, column=1, padx=10)
 
-        # Lancer le backup dans un thread séparé
         threading.Thread(target=self._run_backup, daemon=True).start()
 
     def _log(self, msg):
@@ -913,7 +934,6 @@ class BackupWindow(ModalWindow):
         self._log("Annulation demandée…")
 
     def _on_close(self):
-        """Fermeture propre, que ce soit via le bouton ou la croix."""
         self._request_cancel()
         super()._on_close()
 
@@ -928,9 +948,8 @@ class BackupWindow(ModalWindow):
         )
 
         self.spinner.stop("✅" if success else "⚠")
-        self.after(0, lambda: self.progress_label.configure(
-            text="✅ Backup terminé" if success else "⚠ Backup interrompu"
-        ))
+        msg = "✅ Backup terminé" if success else "⚠ Backup interrompu"
+        self.after(0, lambda: self.progress_label.configure(text=msg))
         self.after(0, lambda: self.finish_button.configure(state="normal"))
         self.after(0, lambda: self.cancel_button.configure(state="disabled"))
 

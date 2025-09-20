@@ -1,6 +1,6 @@
 {
-  "version": "0.1.2",
-  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v0.1.1/MemorEase_0.1.2_Setup.exe",
+  "version": "0.1.3",
+  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v0.1.3/MemorEase_0.1.3_Setup.exe",
   "changelog": [
     "Correction d'un bug dans config.json",
     "Optimisation du système de mise à jour",

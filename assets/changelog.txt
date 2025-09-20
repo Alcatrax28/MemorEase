@@ -1,4 +1,10 @@
+Version 0.1.3 (Alpha)
+-------------
+• Correction d'un bug avec la page de configuration des emplacements de sauvegarde.
+• Harmonisation et simplification du code. 
+
 Version 0.1.2 (Alpha)
+-------------
 • Correction d'un bug dans config.json.
 • Optimisation et nettoyage des scripts.
 • Publication de la notice utilisateur.
