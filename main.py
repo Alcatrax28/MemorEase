@@ -15,10 +15,6 @@ from config_manager import load_paths, save_paths, get_default_paths            
 from utils import (
      resource_path, 
      external_path,
-     CONFIG_FILE, 
-     VERSION_FILE,
-     read_version,
-     find_onedrive,
      get_default_paths,
      load_paths,
      ensure_config_exists
@@ -36,69 +32,72 @@ class ModalWindow(ctk.CTkToplevel):
         self.grab_set()
         self.focus_force()
         self.lift()
-
-        self._safe_set_icon(icon_path)
+        
+        self.bind("<Map>", lambda e: self.after(50, lambda: self._safe_set_icon(icon_path)), add="+")
+        self.bind("<Unmap>", lambda e: self.after(100, self._restore_if_minimized), add="+")
+        self.bind("<Map>", lambda e: self.after(0, self._restore_if_minimized), add="+")
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
-        self.bind("<Unmap>", lambda e: self.after(100, self._restore_if_minimized))
 
     def _safe_set_icon(self, icon_path):
-        # 1) Si un chemin est fourni, tenter “as-is” s’il est absolu
+    
         tried = []
 
         def try_icon(path):
-            if not path:
-                return False
             try:
+                # Vérifier si l'icône est déjà appliquée
+                current = self.iconbitmap()
+                if current and os.path.abspath(current) == os.path.abspath(path):
+                    return True  # déjà la bonne icône
                 self.iconbitmap(path)
                 return True
             except Exception as e:
                 tried.append((path, repr(e)))
                 return False
 
-        # Résolution des candidats:
         candidates = []
-
-        # a) Celui passé en paramètre
         if icon_path:
             if os.path.isabs(icon_path):
                 candidates.append(icon_path)
             else:
-                # Relatif → essayer dans _MEIPASS (resource_path)
                 candidates.append(resource_path(icon_path))
-                # Essayer à côté de l’exe/script (external)
                 candidates.append(external_path(icon_path))
-                # Essayer relatif au cwd en dernier recours
                 candidates.append(os.path.abspath(icon_path))
-
-        # b) Si rien n’a été fourni, essayer quelques emplacements connus
         else:
             for rel in ("assets/icon.ico", "icon.ico"):
                 candidates.append(resource_path(rel))
                 candidates.append(external_path(rel))
 
-        # Exécuter
         for c in candidates:
-            if os.path.exists(c) and try_icon(c):
+            if c and os.path.exists(c) and try_icon(c):
                 return
 
-        # Échec → ne pas bloquer l’UI. Optionnel: log en console
+        # Optionnel : log si aucune icône trouvée
         # print("Icon load failed, tried:", tried)
-        # Aucun raise ici: on laisse la fenêtre continuer sans icône.
 
+    def _on_minimize(self):
+        if self.state() == "iconic":
+            try:
+                self.grab.release()
+            except TclError:
+                pass
+    
     def _restore_if_minimized(self):
         if self.state() == "iconic":
             self.deiconify()
-            self.lift()
-            self.focus_force()
-
+        self.lift()
+        self.focis_force()
+        try:
+            self.grab_set()
+        except TclError:
+            pass
+            
     def _on_close(self):
         try:
             self.grab_release()
         except TclError:
             pass
         self.destroy()
-
 
 class CancelFlag:
     def __init__(self):
@@ -213,6 +212,15 @@ class MainApp(ctk.CTk):
         self.geometry("400x300")
         self.resizable(False, False)
    
+        self.bind("<Map>", lambda e: self.after(50, self._force_icon))
+
+    def _force_icon(self):
+        ico_path = resource_path("icon.ico")
+        try:
+            self.iconbitmap(ico_path)
+        except Exception as e:
+            print("Erreur icône:", e)
+
     def _open_settings(self):
         if self.secondary_window is None or not tk.Toplevel.winfo_exists(self.secondary_window):
             self.secondary_window = SettingsADBWindow(
@@ -225,8 +233,6 @@ class MainApp(ctk.CTk):
             self.secondary_window.lift()
             self.secondary_window.focus_force()
             self.secondary_window.grab_set()
-            ico_path = os.path.abspath(resource_path("icon.ico"))
-            self.iconbitmap(ico_path)
     
     def _load_version(self):
         try:
@@ -378,7 +384,7 @@ class SettingsADBWindow(ModalWindow):
         except Exception as e:
             CTkMessagebox(title="ErreurUI", message=str(e), icon="cancel")
             print("Erreur _create_widgets SettingsADBWindow", repr(e))
-   
+  
     def _create_widgets(self):
         frame = ctk.CTkFrame(self)
         frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -861,7 +867,6 @@ class SettingsBackupWindow(ModalWindow):
             backup_path=self.var_backup.get()
         )
 
-
 class BackupWindow(ModalWindow):
     def __init__(self, master, photos_path, videos_path, backup_path):
         super().__init__(master, title="Exécution du backup", size="900x500", icon_path="icon.ico")
@@ -924,10 +929,9 @@ class BackupWindow(ModalWindow):
         self.console.see(tk.END)
         self.console.configure(state="disabled")
 
-    def _update_progress(self, done, total):
-        ratio = done / total if total else 0
-        self.progressbar.set(ratio)
-        self.progress_label.configure(text=f"Progression : {done} / {total}")
+    def _update_progress(self, done, _):
+        self.progressbar.set(0)
+        self.progress_label.configure(text=f"Fichiers copiés : {done}")
 
     def _request_cancel(self):
         self.cancel_flag.cancelled = True
@@ -962,8 +966,15 @@ class ChangelogWindow(ctk.CTkToplevel):
         self.transient(master)
         self.focus_set()
         self.lift()
-        ico_path = os.path.abspath(resource_path("icon.ico"))
-        self.iconbitmap(ico_path)
+        
+        self.bind("<Map>", lambda e: self.after(50, self._force_icon))
+
+    def _force_icon(self):
+        ico_path = resource_path("icon.ico")
+        try:
+            self.iconbitmap(ico_path)
+        except Exception as e:
+            print("Erreur icône:", e)
 
         # Choix de la police
         changelog_font = ctk.CTkFont(family="IBM Plex Mono", size=12)

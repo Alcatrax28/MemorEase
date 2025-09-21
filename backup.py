@@ -1,20 +1,11 @@
 import subprocess
 import os
 import re
-import sys
 
 def run_backup(photo_src, video_src, backup_dest,
                log_callback=None, progress_callback=None, cancel_flag=None):
-
-    def count_files(path):
-        total = 0
-        for _, _, files in os.walk(path):
-            total += len(files)
-        return total
-
-    # Calcul du total de fichiers à traiter
-    total_files = count_files(photo_src) + count_files(video_src)
-    done = 0
+    
+    done = 0    # Fichiers réellement copiés ou mis à jour
 
     def _run_single(src, subfolder):
         nonlocal done
@@ -23,15 +14,16 @@ def run_backup(photo_src, video_src, backup_dest,
             "robocopy",
             src,
             dest,
-            "/MIR",   # miroir
-            "/NJH",   # pas d'entête
-            "/NJS",   # pas de résumé
-            "/NDL",   # pas de liste de dossiers
-            "/NP",    # pas de progression en %
+            "/MIR",     # copie miroir
+            "/NJH",     # pas d'entête
+            "/NDL",     # pas de liste de dossiers (fichiers uniquement)
+            "/NP",      # pas de progression en %
+            "/ETA",
         ]
 
-        # Empêcher l'ouverture d'une fenêtre console sous Windows
         creationflags = 0
+
+        # Empêcher la création de fenêtre de commande Windows
         if os.name == "nt":
             creationflags = subprocess.CREATE_NO_WINDOW
 
@@ -40,6 +32,8 @@ def run_backup(photo_src, video_src, backup_dest,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding="utf-8",           # Essayer "mbcs" si "utf-8" ne fonctionne pas correctement
+
             creationflags=creationflags
         )
 
@@ -47,26 +41,25 @@ def run_backup(photo_src, video_src, backup_dest,
             if cancel_flag and cancel_flag.cancelled:
                 proc.terminate()
                 if log_callback:
-                    log_callback(f"Backup interrompu sur {subfolder}")
+                    log_callback(f"⛔ Backup interrompu sur {subfolder}")
                 return False
+            
+            line = line.expandtabs().rstrip()
 
-            # Filtrer les lignes vides ou juste %
-            if re.fullmatch(r"\s*\d+(\.\d+)?%\s*", line):
-                continue
-
-            # Détection d'un fichier copié/mis à jour
-            if line.strip() and not line.startswith(" ") and not line.endswith("%"):
+            # Détection d'un fichier copié ou mis à jour
+            if re.search(r"\s+\d+\s+.*", line):     # Ligne contenant un compteur
                 done += 1
+
                 if progress_callback:
-                    progress_callback(done, total_files)
+                    progress_callback(done, None)   # total inconnu -> on affiche uniquement le compteur
 
             if log_callback:
-                log_callback(line.rstrip())
+                log_callback(line)
 
         return True
-
+    
     # Lancer les deux backups
     _run_single(photo_src, "Photos")
     _run_single(video_src, "Videos")
 
-    return not (cancel_flag and cancel_flag.cancelled), total_files
+    return not (cancel_flag and cancel_flag.cancelled), done

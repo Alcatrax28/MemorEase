@@ -1,3 +1,11 @@
+Version 0.1.4 (Alpha)
+-------------
+• L'icône de l'application apparaît désormais correctement dans le coin supérieur gauche des fenêtres de l'application (sauf paramétrage, le problème est en cours de résolution).
+• Les problèmes d'affichage dans la console lors d'un backup sont désormais corrigés.
+• Le compteur de fichiers total pour les backup est revu et n'affiche plus de manière erronée la totalité des fichiers analysés.
+• La barre de progression lors des backups ne fixe plus sa valeur "100%" sur base du nombre total de fichiers analysés.
+
+
 Version 0.1.3 (Alpha)
 -------------
 • Correction d'un bug avec la page de configuration des emplacements de sauvegarde.
