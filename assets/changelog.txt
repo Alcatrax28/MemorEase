@@ -1,3 +1,8 @@
+Version 0.1.5 (Alpha)
+-------------
+• Corrections d'affichage du script "backup" se reposant sur Robocopy.
+
+
 Version 0.1.4 (Alpha)
 -------------
 • L'icône de l'application apparaît désormais correctement dans le coin supérieur gauche des fenêtres de l'application (sauf paramétrage, le problème est en cours de résolution).

@@ -86,7 +86,7 @@ class ModalWindow(ctk.CTkToplevel):
         if self.state() == "iconic":
             self.deiconify()
         self.lift()
-        self.focis_force()
+        self.focus_force()
         try:
             self.grab_set()
         except TclError:
@@ -929,9 +929,10 @@ class BackupWindow(ModalWindow):
         self.console.see(tk.END)
         self.console.configure(state="disabled")
 
-    def _update_progress(self, done, _):
-        self.progressbar.set(0)
-        self.progress_label.configure(text=f"Fichiers copiés : {done}")
+    def _update_progress(self, done, total):
+        ratio = done / total if total else 0
+        self.progressbar.set(ratio)
+        self.progress_label.configure(text=f"Progression : {done} / {total}")
 
     def _request_cancel(self):
         self.cancel_flag.cancelled = True
@@ -942,7 +943,7 @@ class BackupWindow(ModalWindow):
         super()._on_close()
 
     def _run_backup(self):
-        success, _ = run_backup(
+        success, done, total = run_backup(
             self.photo_src,
             self.video_src,
             self.backup_dest,

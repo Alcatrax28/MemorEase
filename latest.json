@@ -1,9 +1,8 @@
 {
-  "version": "0.1.4",
-  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v0.1.4/MemorEase_0.1.4_Setup.exe",
+  "version": "0.1.5",
+  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v0.1.5/MemorEase_0.1.5_Setup.exe",
   "changelog": [
-    "Correction d'un bug dans les menus configs",
-    "Optimisation du code"
+    "Corrections d'affichage du script 'backup' se reposant sur Robocopy."
   ],
   "mandatory": false
 }
