@@ -837,8 +837,16 @@ class SettingsBackupWindow(ModalWindow):
         self.entry_bu.configure(border_color="red")
 
     def _update_launch_button(self):
+        # Vérifie si tous les champs sont remplis
         filled = all(v.get().strip() for v in (self.var_photos, self.var_videos, self.var_backup))
         self.launch_button.configure(state="normal" if filled else "disabled")
+
+        # Vérifie si le chemin de backup existe → change la couleur
+        backup_path = self.var_backup.get().strip()
+        if backup_path and os.path.isdir(backup_path):
+            self.entry_bu.configure(border_color="green")
+        else:
+            self.entry_bu.configure(border_color="red")
 
     def _launch(self):
         # Sauvegarde via ConfigManager + ajout du backup
@@ -874,20 +882,10 @@ class BackupWindow(ModalWindow):
         self.photo_src = photos_path
         self.video_src = videos_path
         self.backup_dest = backup_path
-
         self.cancel_flag = CancelFlag()
 
-        # Calcul du total de fichiers AVANT affichage
-        def count_files(path):
-            total = 0
-            for _, _, files in os.walk(path):
-                total += len(files)
-            return total
-
-        self.total_files = count_files(self.photo_src) + count_files(self.video_src)
-
-        # Widgets
-        self.progress_label = ctk.CTkLabel(self, text=f"Progression : 0 / {self.total_files}")
+        # Label initial sans total fixe (sera mis à jour par callback)
+        self.progress_label = ctk.CTkLabel(self, text="Initialisation du module...")
         self.progress_label.pack(pady=(20, 5))
 
         self.progressbar = ctk.CTkProgressBar(self, width=700)
@@ -932,7 +930,8 @@ class BackupWindow(ModalWindow):
     def _update_progress(self, done, total):
         ratio = done / total if total else 0
         self.progressbar.set(ratio)
-        self.progress_label.configure(text=f"Progression : {done} / {total}")
+        percent = round(ratio * 100, 1)
+        self.progress_label.configure(text=f"Progression : {percent}%")
 
     def _request_cancel(self):
         self.cancel_flag.cancelled = True
@@ -962,29 +961,24 @@ class ChangelogWindow(ctk.CTkToplevel):
     def __init__(self, master):
         super().__init__(master)
         self.title("Changelog")
-        self.geometry("500x400")      
+        self.geometry("500x400")
         self.resizable(False, False)
         self.transient(master)
         self.focus_set()
         self.lift()
-        
+
+        self._create_ui()
         self.bind("<Map>", lambda e: self.after(50, self._force_icon))
 
-    def _force_icon(self):
-        ico_path = resource_path("icon.ico")
-        try:
-            self.iconbitmap(ico_path)
-        except Exception as e:
-            print("Erreur icône:", e)
-
-        # Choix de la police
+    def _create_ui(self):
+        # Police
         changelog_font = ctk.CTkFont(family="IBM Plex Mono", size=12)
 
-        # Scrolling
+        # Zone de texte avec scroll
         self.textbox = ctk.CTkTextbox(self, font=changelog_font, wrap="word", activate_scrollbars=True)
         self.textbox.pack(expand=True, fill="both", padx=20, pady=20)
 
-        # Chargement de Changelog.txt
+        # Chargement du fichier changelog
         try:
             with open(resource_path("assets/changelog.txt"), "r", encoding="utf-8") as f:
                 content = f.read()
@@ -992,7 +986,14 @@ class ChangelogWindow(ctk.CTkToplevel):
         except Exception as e:
             self.textbox.insert("0.0", f"Erreur lors du chargement du changelog : \n{e}")
 
-        self.textbox.configure(state="disabled") # Lecture seule
+        self.textbox.configure(state="disabled")  # Lecture seule
+
+    def _force_icon(self):
+        ico_path = resource_path("icon.ico")
+        try:
+            self.iconbitmap(ico_path)
+        except Exception as e:
+            print("Erreur icône:", e)
 
 if __name__ == "__main__":
 

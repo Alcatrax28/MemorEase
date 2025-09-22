@@ -1,3 +1,29 @@
+Version 1.0.0 (Stable)
+-------------
+• Déploiement de la première version stable.
+• Backup : Modification du comportement : 
+    > Passage d'un système via robocopy vers un système maison de mise en miroir.
+    > Les logs sont maintenant corrects, gèrent les accents correctement (FR) et indiquent correctement la progression et les interactions.
+
+• SettingsBackup : Optimisation du comportement : 
+    > Le chemin de backup est vérifié si celui-ci est indiqué manuellement et non via le bouton parcourir. Il faut que le chemin de destination existe déjà pour débloquer le lancement du backup.
+
+• Passage en revue des différentes fonctionnalités et test avant publication.
+
+> PROBLEMES CONNUS <
+• Si une fenêtre secondaire est ouverte et que l'application est minimisée de force (retour bureau, ...) une exception se produit, empêchant de développer la fenêtre à nouveau. 
+    > Ce bug est en cours d'analyse et sera corrigé avec la plus grande priorité.
+
+• Il n'y a pas de vérifications MD5 / SHA des fichiers lors du tri automatique.
+    > Cette fonctionnalité est en cours de développement et sera ajoutée prochainement.
+
+• Il n'y a pas de vérification SHA256 lors des mises à jour de l'application.
+    > > Cette fonctionnalité est en cours de développement et sera ajoutée prochainement.
+
+• L'icône ne s'affiche pas correctement dans les fenêtres de paramétrage et lors de certains cas encore non identifiés clairement.
+    > Ce bug est minime et sera corrigé ultérieurement.
+
+
 Version 0.1.5 (Alpha)
 -------------
 • Corrections d'affichage du script "backup" se reposant sur Robocopy.

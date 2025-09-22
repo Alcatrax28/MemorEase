@@ -1,89 +1,110 @@
-import subprocess
 import os
-import re
+import shutil
+import hashlib
+
+def md5sum(path, block_size=65536):
+    h = hashlib.md5()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(block_size), b''):
+            h.update(chunk)
+    return h.hexdigest()
 
 def run_backup(photo_src, video_src, backup_dest,
                log_callback=None, progress_callback=None, cancel_flag=None):
 
-    # 1) Total à traiter (tous les fichiers sources)
     def count_files(path):
         total = 0
         for _, _, files in os.walk(path):
             total += len(files)
         return total
 
-    total_files = count_files(photo_src) + count_files(video_src)
+    base_dest = os.path.join(backup_dest, "MemorEase_backup")
+    photos_dst = os.path.join(base_dest, "Photos")
+    videos_dst = os.path.join(base_dest, "Videos")
+
+    src_count = count_files(photo_src) + count_files(video_src)
+    dst_count = (count_files(photos_dst) if os.path.isdir(photos_dst) else 0) \
+              + (count_files(videos_dst) if os.path.isdir(videos_dst) else 0)
+    total = src_count + dst_count
     done = 0
 
-    # Lignes "fichier" typiques: "2025/09/21 22:03:17 123456 E:\path\file.ext"
-    FILE_LINE_RE = re.compile(
-    r"^\s*(Nouveau fichier|Fichier\s+plus\s+récent|Fichier\s+identique|Nouveau\s+dossier)\s+\d+\s+.+$",
-    re.IGNORECASE
-)
+    if progress_callback:
+        progress_callback(0, total)
 
+    # Largeur fixe pour aligner les colonnes
+    name_col_width = 50
 
-    def _run_single(src, subfolder):
+    def mirror(src_root, dst_root):
         nonlocal done
-        dest = os.path.join(backup_dest, "MemorEase_backup", subfolder)
-        cmd = [
-            "robocopy",
-            src,
-            dest,
-            "/MIR",   # miroir
-            "/E",     # inclut sous-dossiers vides (ou /S si tu préfères ignorer vides)
-            "/NJH",   # pas d'en-tête
-            "/NP",    # pas de progression %
-            "/NDL",   # ne liste pas les dossiers (évite le faux comptage)
-            "/BYTES", # taille en bytes (colonne taille toujours numérique)
-            # Optionnel pour éviter de bloquer sur fichiers verrouillés:
-            "/R:0",   # 0 retry
-            "/W:0",   # 0 seconde d'attente
-        ]
 
-        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        encoding = "mbcs" if os.name == "nt" else "utf-8"
+        src_files = {}
+        for root, _, files in os.walk(src_root):
+            for f in files:
+                rel = os.path.relpath(os.path.join(root, f), src_root)
+                src_files[rel] = os.path.join(root, f)
 
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding=encoding,
-            creationflags=creationflags
-        )
+        dst_files = {}
+        if os.path.isdir(dst_root):
+            for root, _, files in os.walk(dst_root):
+                for f in files:
+                    rel = os.path.relpath(os.path.join(root, f), dst_root)
+                    dst_files[rel] = os.path.join(root, f)
 
-        for raw in proc.stdout:
+        os.makedirs(dst_root, exist_ok=True)
+
+        for rel, src_path in src_files.items():
             if cancel_flag and cancel_flag.cancelled:
-                proc.terminate()
                 if log_callback:
-                    log_callback(f"⛔ Backup interrompu ({subfolder})")
+                    log_callback("[STOP] Le backup a été interrompu par l'utilisateur.")
                 return False
 
-            line = raw.expandtabs().rstrip()
+            dst_path = os.path.join(dst_root, rel)
+            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
 
-            # Incrémenter pour chaque ligne fichier détectée
-            if FILE_LINE_RE.match(line):
+            if rel in dst_files:
+                try:
+                    same = md5sum(src_path) == md5sum(dst_path)
+                except FileNotFoundError:
+                    same = False
+                if same:
+                    done += 2
+                    if progress_callback:
+                        progress_callback(done, total)
+                    if log_callback:
+                        log_callback(f"[IGNORÉ]\t{rel.ljust(name_col_width)}\t déjà présent")
+                    continue
+
+            shutil.copy2(src_path, dst_path)
+            done += 1
+            if progress_callback:
+                progress_callback(done, total)
+            if log_callback:
+                log_callback(f"[COPIÉ]\t{rel.ljust(name_col_width)}")
+
+        for rel, dst_path in dst_files.items():
+            if cancel_flag and cancel_flag.cancelled:
+                if log_callback:
+                    log_callback("[STOP] Le backup a été interrompu par l'utilisateur.")
+                return False
+            if rel not in src_files:
+                try:
+                    os.remove(dst_path)
+                except FileNotFoundError:
+                    pass
                 done += 1
                 if progress_callback:
-                    progress_callback(done, total_files)
-
-            if log_callback:
-                log_callback(line)
+                    progress_callback(done, total)
+                if log_callback:
+                    log_callback(f"[SUPPRIMÉ]\t{rel.ljust(name_col_width)}\t absent du dossier source")
 
         return True
 
-    # 2) Exécuter les deux passes
-    _run_single(photo_src, "Photos")
-    _run_single(video_src, "Videos")
+    ok1 = mirror(photo_src, photos_dst)
+    if not ok1:
+        return False, done, total
+    ok2 = mirror(video_src, videos_dst)
+    if not ok2:
+        return False, done, total
 
-    # 3) Ajustement final si la destination contient déjà tout
-    photos_dst = os.path.join(backup_dest, "MemorEase_backup", "Photos")
-    videos_dst = os.path.join(backup_dest, "MemorEase_backup", "Videos")
-    dest_total = count_files(photos_dst) + count_files(videos_dst)
-
-    if dest_total >= total_files:
-        done = total_files
-        if progress_callback:
-            progress_callback(done, total_files)
-
-    return not (cancel_flag and cancel_flag.cancelled), done, total_files
+    success = ok1 and ok2 and not (cancel_flag and cancel_flag.cancelled)
+    return success, done, total

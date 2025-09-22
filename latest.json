@@ -1,8 +1,12 @@
 {
-  "version": "0.1.5",
-  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v0.1.5/MemorEase_0.1.5_Setup.exe",
+  "version": "1.0.0",
+  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v1.0.0/MemorEase_1.0.0_Setup.exe",
   "changelog": [
-    "Corrections d'affichage du script 'backup' se reposant sur Robocopy."
+    "DEPLOIEMENT DE LA PREMIERE VERSION STABLE",
+    "Correction des problèmes d'affichage et d'exécution de la fonctionnalité de Backup vers un périphérique externe",
+    "Ajout d'un 'garde-fou' si on essaie d'indiquer un chemin inexistant comme périphérique externe pour le backup",
+    "La fenêtre de logs lors du backup affiche désormais des messages corrects",
+    "La barre de progression et le pourcentage du backup sont désormais correctement intégrés et affichés"
   ],
   "mandatory": false
 }
