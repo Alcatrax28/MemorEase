@@ -1,3 +1,8 @@
+Version 1.1.0 (Stable)
+-------------
+• Modification des comportements des fenêtres pour éviter les problèmes lorsqu'elles sont minimisées.
+• La fonction de tri et renommage intègre désormais une gestion des doublons. Les opérations s'effectuent dans l'ordre suivant : Renommage > Doublons > Déplacement à la destination.
+
 Version 1.0.0 (Stable)
 -------------
 • Déploiement de la première version stable.

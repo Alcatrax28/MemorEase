@@ -17,10 +17,7 @@ from utils import (
      external_path,
      get_default_paths,
      load_paths,
-     ensure_config_exists
 )
-
-ensure_config_exists()
 
 class ModalWindow(ctk.CTkToplevel):
     def __init__(self, master, title="Fenêtre", size="600x400", icon_path=None):
@@ -29,13 +26,10 @@ class ModalWindow(ctk.CTkToplevel):
         self.geometry(size)
         self.resizable(False, False)
         self.transient(master)
-        self.grab_set()
         self.focus_force()
         self.lift()
         
         self.bind("<Map>", lambda e: self.after(50, lambda: self._safe_set_icon(icon_path)), add="+")
-        self.bind("<Unmap>", lambda e: self.after(100, self._restore_if_minimized), add="+")
-        self.bind("<Map>", lambda e: self.after(0, self._restore_if_minimized), add="+")
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -81,16 +75,6 @@ class ModalWindow(ctk.CTkToplevel):
                 self.grab.release()
             except TclError:
                 pass
-    
-    def _restore_if_minimized(self):
-        if self.state() == "iconic":
-            self.deiconify()
-        self.lift()
-        self.focus_force()
-        try:
-            self.grab_set()
-        except TclError:
-            pass
             
     def _on_close(self):
         try:
@@ -114,8 +98,8 @@ class UpdateWindow(ctk.CTkToplevel):
 
         # Rendre la fenêtre modale
         self.transient(master)
-        self.grab_set()
         self.focus_force()
+        self.lift()
 
         self.update_info = update_info
         self.cancel_flag = CancelFlag()
@@ -671,6 +655,7 @@ class SortWindow(ModalWindow):
         self.videos_path = videos_path
 
         self.cancel_flag = CancelFlag()
+        self.duplicates_removed = 0  # compteur de doublons supprimés
 
         try:
             self._create_widgets()
@@ -682,9 +667,9 @@ class SortWindow(ModalWindow):
         self.spinner.start()
 
         threading.Thread(target=self._start_sort, daemon=True).start()
-    
+
     def _create_widgets(self):
-        self.progress_label = ctk.CTkLabel(self, text="Progression : 0 / 0")
+        self.progress_label = ctk.CTkLabel(self, text="Progression : 0%")
         self.progress_label.pack(pady=(20, 5))
 
         self.progressbar = ctk.CTkProgressBar(self, width=700)
@@ -719,14 +704,13 @@ class SortWindow(ModalWindow):
         self.console.see(tk.END)
         self.console.configure(state="disabled")
 
-    def _update_progress(self, done, total):
-        if total == 0:
-            self.progressbar.set(0)
-            self.progress_label.configure(text="Progression : 0 / 0")
-        else:
-            ratio = done / total
-            self.progressbar.set(ratio)
-            self.progress_label.configure(text=f"Progression : {done} / {total}")
+        # Si le message contient "[DUPLICAT]", on incrémente le compteur
+        if "[DUPLICAT]" in message:
+            self.duplicates_removed += 1
+
+    def _update_progress(self, percent):
+        self.progressbar.set(percent / 100)
+        self.progress_label.configure(text=f"Progression : {percent}%")
 
     def _request_cancel(self):
         self.cancel_flag.cancelled = True
@@ -744,7 +728,7 @@ class SortWindow(ModalWindow):
             self.photos_path,
             self.videos_path,
             log_callback=lambda msg: self.after(0, self._log, msg),
-            progress_callback=lambda d, t: self.after(0, self._update_progress, d, t),
+            progress_callback=lambda p: self.after(0, self._update_progress, p),
             cancel_flag=self.cancel_flag
         )
 
@@ -752,6 +736,9 @@ class SortWindow(ModalWindow):
         self.after(0, lambda: self.progress_label.configure(text="✅ Tri terminé"))
         self.after(0, lambda: self.finish_button.configure(state="normal"))
         self.after(0, lambda: self.cancel_button.configure(state="disabled"))
+
+        # Résumé final
+        self.after(0, lambda: self._log(f"🔎 Résumé : {self.duplicates_removed} doublon(s) supprimé(s)."))
 
 class SettingsBackupWindow(ModalWindow):
     def __init__(self, master):
