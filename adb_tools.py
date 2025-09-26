@@ -2,7 +2,13 @@ import subprocess
 import os
 import time
 import sys
-from utils import resource_path
+
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 def get_adb_path():
     adb_embedded = resource_path(os.path.join("assets", "adb", "adb.exe"))

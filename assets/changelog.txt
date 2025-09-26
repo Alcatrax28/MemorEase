@@ -1,7 +1,9 @@
 Version 1.1.0 (Stable)
 -------------
-• Modification des comportements des fenêtres pour éviter les problèmes lorsqu'elles sont minimisées.
-• La fonction de tri et renommage intègre désormais une gestion des doublons. Les opérations s'effectuent dans l'ordre suivant : Renommage > Doublons > Déplacement à la destination.
+• Ajout d'une vérification des doublons après renommage et avant déplacement dans les dossiers de destination.
+• Les doublons vérifiés sont : image semblable à plus de 98% ou image identique mais avec rotation différente. Vidéos identiques (durée, contenu).
+• Modification du comportement de fermeture pour tenter d'éviter les messages d'erreur lors de l'installation d'une nouvelle version.
+• Modification des comportements des fenêtres pour éviter les problèmes lorsqu'elles sont minimisées
 
 Version 1.0.0 (Stable)
 -------------

@@ -17,6 +17,7 @@ def _remove_duplicates(save_path, log_callback, progress_callback, cancel_flag):
     total = len(files)
     processed = 0
     seen = {}
+    duplicates_removed = 0
 
     for f in files:
         if cancel_flag.cancelled:
@@ -31,6 +32,7 @@ def _remove_duplicates(save_path, log_callback, progress_callback, cancel_flag):
             if h:
                 duplicate = None
                 for prev, prev_hash in seen.items():
+                    log_callback(f"[COMPARE]\t{f} <-> {prev}")
                     # distance de Hamming <= 2 ≈ 98% similaire
                     if h - prev_hash <= 2:
                         duplicate = prev
@@ -47,7 +49,8 @@ def _remove_duplicates(save_path, log_callback, progress_callback, cancel_flag):
                 if duplicate:
                     to_delete = max(f, duplicate)
                     os.remove(os.path.join(save_path, to_delete))
-                    log_callback(f"[DUPLICAT] {to_delete} supprimé (similaire à {duplicate})")
+                    duplicates_removed += 1
+                    log_callback(f"[DUPLICAT]\t{to_delete} supprimé (similaire à {duplicate})")
                 else:
                     seen[f] = h
 
@@ -55,15 +58,19 @@ def _remove_duplicates(save_path, log_callback, progress_callback, cancel_flag):
             h = file_md5(path)
             if h in seen.values():
                 prev = [k for k, v in seen.items() if v == h][0]
+                log_callback(f"[COMPARE]\t{f} <-> {prev}")
                 to_delete = max(f, prev)
                 os.remove(os.path.join(save_path, to_delete))
-                log_callback(f"[DUPLICAT] {to_delete} supprimé (identique à {prev})")
+                duplicates_removed += 1
+                log_callback(f"[DUPLICAT]\t{to_delete} supprimé (identique à {prev})")
             else:
                 seen[f] = h
 
         processed += 1
         percent = int((processed / total) * 100) if total else 100
         progress_callback(percent)
+
+    log_callback(f"[RÉSUMÉ]\t{duplicates_removed} doublons supprimés")
 
 # -------------------------------
 # Regex formats attendus
@@ -128,9 +135,11 @@ def sort_and_save_files(save_path, photos_path, videos_path, log_callback, progr
         log_callback(f"Dossier de sauvegarde introuvable : {save_path}")
         return
 
-    # Phase 1 : renommage
+    # Phase 1 : Renommage
     log_callback("Phase 1 : Renommage des fichiers...")
-    files = [f for f in os.listdir(save_path) if os.path.isfile(os.path.join(save_path, f))]
+    files = sorted([f for f in os.listdir(save_path) if os.path.isfile(os.path.join(save_path, f))])
+    total_rename = len(files)
+    processed_rename = 0
     for f in files:
         if cancel_flag.cancelled:
             log_callback("Opération interrompue par l'utilisateur.")
@@ -141,17 +150,22 @@ def sort_and_save_files(save_path, photos_path, videos_path, log_callback, progr
         if new_name != f:
             try:
                 os.rename(path, os.path.join(save_path, new_name))
-                log_callback(f"[RENOMMÉ] {f} → {new_name}")
+                log_callback(f"[RENAMED]\t{f} -> {new_name}")
             except Exception as e:
-                log_callback(f"[ERREUR] Impossible de renommer {f} ({e})")
+                log_callback(f"[ERREUR]\tImpossible de renommer {f} ({e})")
+        else:
+            log_callback(f"[OK]\t{f}")
+        processed_rename += 1
+        percent = int((processed_rename / total_rename) * 100) if total_rename else 100
+        progress_callback(percent)
 
-    # Phase 2 : suppression doublons
+    # Phase 2 : Suppression doublons
     log_callback("Phase 2 : Vérification des doublons...")
     _remove_duplicates(save_path, log_callback, progress_callback, cancel_flag)
 
-    # Phase 3 : tri et déplacement
+    # Phase 3 : Tri et déplacement
     log_callback("Phase 3 : Tri et déplacement...")
-    files = [f for f in os.listdir(save_path) if os.path.isfile(os.path.join(save_path, f))]
+    files = sorted([f for f in os.listdir(save_path) if os.path.isfile(os.path.join(save_path, f))])
     total_files = len(files)
     moved_files = 0
     error_dir = os.path.join(save_path, "Erreur_tri")
@@ -175,7 +189,7 @@ def sort_and_save_files(save_path, photos_path, videos_path, log_callback, progr
                 os.makedirs(dest_dir, exist_ok=True)
                 shutil.move(src, os.path.join(dest_dir, filename))
                 moved_files += 1
-                log_callback(f"[OK] Photo {filename} déplacée vers {dest_dir}")
+                log_callback(f"[MOVE]\t{filename} -> {os.path.join(dest_dir, filename)}")
 
             elif match_video:
                 year = match_video.group(1)
@@ -183,7 +197,7 @@ def sort_and_save_files(save_path, photos_path, videos_path, log_callback, progr
                 os.makedirs(dest_dir, exist_ok=True)
                 shutil.move(src, os.path.join(dest_dir, filename))
                 moved_files += 1
-                log_callback(f"[OK] Vidéo {filename} déplacée vers {dest_dir}")
+                log_callback(f"[MOVE]\t{filename} -> {os.path.join(dest_dir, filename)}")
 
             elif ext in (".jpg", ".mp4"):
                 if ext == ".jpg":
@@ -198,23 +212,30 @@ def sort_and_save_files(save_path, photos_path, videos_path, log_callback, progr
                     year = dt.strftime("%Y")
                     dest_dir = os.path.join(photos_path if ext == ".jpg" else videos_path, year)
                     os.makedirs(dest_dir, exist_ok=True)
-                    shutil.move(src, os.path.join(dest_dir, new_name))
+                    final_path = os.path.join(dest_dir, new_name)
+                    shutil.move(src, final_path)
                     moved_files += 1
-                    log_callback(f"[RENOMMÉ+DEPLACÉ] {filename} → {new_name} vers {dest_dir}")
+                    log_callback(f"[MOVE]\t{filename} -> {final_path}")
                 else:
                     os.makedirs(error_dir, exist_ok=True)
-                    shutil.move(src, os.path.join(error_dir, filename))
+                    err_path = os.path.join(error_dir, filename)
+                    shutil.move(src, err_path)
                     error_occurred = True
-                    log_callback(f"[ERREUR] {filename} déplacé vers Erreur_tri (pas de date)")
+                    log_callback(f"[ERREUR]\t{filename} déplacé vers {err_path} (pas de date)")
 
             else:
-                log_callback(f"[IGNORÉ] {filename} (extension non prise en charge)")
+                log_callback(f"[IGNORÉ]\t{filename} (extension non prise en charge)")
 
         except Exception as e:
             os.makedirs(error_dir, exist_ok=True)
-            shutil.move(src, os.path.join(error_dir, filename))
+            err_path = os.path.join(error_dir, filename)
+            try:
+                shutil.move(src, err_path)
+            except Exception:
+                # Si le move échoue (ex. déjà déplacé), on logue quand même l'erreur
+                pass
             error_occurred = True
-            log_callback(f"[ERREUR] {filename} déplacé vers Erreur_tri ({e})")
+            log_callback(f"[ERREUR]\t{filename} déplacé vers {err_path} ({e})")
 
         percent = int((moved_files / total_files) * 100) if total_files else 100
         progress_callback(percent)
@@ -225,3 +246,5 @@ def sort_and_save_files(save_path, photos_path, videos_path, log_callback, progr
             os.rmdir(error_dir)
         except OSError:
             pass
+
+    log_callback("Tri et sauvegarde terminés.")
