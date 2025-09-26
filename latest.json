@@ -1,9 +1,8 @@
 {
-  "version": "1.1.0",
-  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v1.1.0/MemorEase_1.1.0_Setup.exe",
+  "version": "1.1.1",
+  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v1.1.1/MemorEase_1.1.1_Setup.exe",
   "changelog": [
-    "Modification des comportements des fenêtres pour éviter les problèmes lorsqu'elles sont minimisées",
-    "La fonction de tri et renommage intègre désormais une gestion des doublons. Les opérations s'effectuent dans l'ordre 'Renommage>Doublons>Déplacement'"
+    "Correction d'un bloquage à la fin de l'opération de recherche des doublons."
   ],
   "mandatory": false
 }

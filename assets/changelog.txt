@@ -1,3 +1,8 @@
+Version 1.1.1 (Correctif)
+-------------
+• Correction d'une erreur de script à la fin de la comparaison des doublons.
+
+
 Version 1.1.0 (Stable)
 -------------
 • Ajout d'une vérification des doublons après renommage et avant déplacement dans les dossiers de destination.

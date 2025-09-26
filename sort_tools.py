@@ -16,12 +16,14 @@ def _remove_duplicates(save_path, log_callback, progress_callback, cancel_flag):
     files = sorted([f for f in os.listdir(save_path) if os.path.isfile(os.path.join(save_path, f))])
     total = len(files)
     processed = 0
-    seen = {}
+    seen_images = {}
+    seen_videos = {}
     duplicates_removed = 0
 
     for f in files:
         if cancel_flag.cancelled:
             log_callback("Détection doublons interrompue.")
+            progress_callback(100)
             break
 
         path = os.path.join(save_path, f)
@@ -31,13 +33,11 @@ def _remove_duplicates(save_path, log_callback, progress_callback, cancel_flag):
             h = image_hash(path)
             if h:
                 duplicate = None
-                for prev, prev_hash in seen.items():
+                for prev, prev_hash in seen_images.items():
                     log_callback(f"[COMPARE]\t{f} <-> {prev}")
-                    # distance de Hamming <= 2 ≈ 98% similaire
                     if h - prev_hash <= 2:
                         duplicate = prev
                         break
-                    # test rotations
                     try:
                         img = Image.open(path).convert("RGB")
                         for angle in (90, 180, 270):
@@ -52,25 +52,26 @@ def _remove_duplicates(save_path, log_callback, progress_callback, cancel_flag):
                     duplicates_removed += 1
                     log_callback(f"[DUPLICAT]\t{to_delete} supprimé (similaire à {duplicate})")
                 else:
-                    seen[f] = h
+                    seen_images[f] = h
 
         elif ext == ".mp4":
             h = file_md5(path)
-            if h in seen.values():
-                prev = [k for k, v in seen.items() if v == h][0]
+            if h in seen_videos.values():
+                prev = [k for k, v in seen_videos.items() if v == h][0]
                 log_callback(f"[COMPARE]\t{f} <-> {prev}")
                 to_delete = max(f, prev)
                 os.remove(os.path.join(save_path, to_delete))
                 duplicates_removed += 1
                 log_callback(f"[DUPLICAT]\t{to_delete} supprimé (identique à {prev})")
             else:
-                seen[f] = h
+                seen_videos[f] = h
 
         processed += 1
         percent = int((processed / total) * 100) if total else 100
         progress_callback(percent)
 
     log_callback(f"[RÉSUMÉ]\t{duplicates_removed} doublons supprimés")
+    progress_callback(100)
 
 # -------------------------------
 # Regex formats attendus
@@ -84,7 +85,6 @@ VIDEO_PATTERN = re.compile(r"^VID(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:_(
 # -------------------------------
 
 def _get_exif_datetime(path):
-    """Retourne un datetime à partir des métadonnées EXIF si dispo."""
     try:
         img = Image.open(path)
         exif_data = img._getexif()
@@ -102,7 +102,6 @@ def _get_exif_datetime(path):
     return None
 
 def _get_file_datetime(path):
-    """Retourne un datetime basé sur la date de création/modification du fichier."""
     try:
         ts = os.path.getmtime(path)
         return datetime.fromtimestamp(ts)
@@ -114,10 +113,6 @@ def _get_file_datetime(path):
 # -------------------------------
 
 def _normalize_filename(filename, ext):
-    """
-    Force un format strict IMGYYYYMMDDHHMMSS.ext ou VIDYYYYMMDDHHMMSS.ext
-    en supprimant tout suffixe parasite après la date/heure.
-    """
     base, _ = os.path.splitext(filename)
     m = re.search(r'(\d{14})', base)
     if m:
@@ -158,6 +153,7 @@ def sort_and_save_files(save_path, photos_path, videos_path, log_callback, progr
         processed_rename += 1
         percent = int((processed_rename / total_rename) * 100) if total_rename else 100
         progress_callback(percent)
+    progress_callback(100)
 
     # Phase 2 : Suppression doublons
     log_callback("Phase 2 : Vérification des doublons...")
@@ -232,19 +228,5 @@ def sort_and_save_files(save_path, photos_path, videos_path, log_callback, progr
             try:
                 shutil.move(src, err_path)
             except Exception:
-                # Si le move échoue (ex. déjà déplacé), on logue quand même l'erreur
                 pass
             error_occurred = True
-            log_callback(f"[ERREUR]\t{filename} déplacé vers {err_path} ({e})")
-
-        percent = int((moved_files / total_files) * 100) if total_files else 100
-        progress_callback(percent)
-        time.sleep(0.05)
-
-    if not error_occurred and os.path.isdir(error_dir) and not os.listdir(error_dir):
-        try:
-            os.rmdir(error_dir)
-        except OSError:
-            pass
-
-    log_callback("Tri et sauvegarde terminés.")
