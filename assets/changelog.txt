@@ -1,3 +1,7 @@
+Version 1.1.3 (Correctif)
+• Correction d'une erreur de script dans le renommage des fichiers vidéo.
+
+
 Version 1.1.2 (Correctif)
 -------------
 • Correction d'une erreur de script à la fin du backup.

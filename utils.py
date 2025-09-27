@@ -81,15 +81,15 @@ def get_default_paths():
     od = find_onedrive()
     user = getpass.getuser()
     if od:
-        save   = os.path.join(od, "Images", "Memorease_Downloads")
-        photos = os.path.join(od, "Images", "Photos")
-        videos = os.path.join(od, "Videos", "Mes videos")
+        save   = os.path.join(od, "Memorease", "Downloads")
+        photos = os.path.join(od, "Memorease", "Photos")
+        videos = os.path.join(od, "Memorease", "Mes videos")
     else:
         root_drive = os.getcwd().split(os.sep)[0] + "\\"
         base       = os.path.join(root_drive, "Users", user)
         save   = os.path.join(base, "Pictures", "Memorease_Downloads")
-        photos = os.path.join(base, "Pictures", "Photos")
-        videos = os.path.join(base, "Videos", "Mes videos")
+        photos = os.path.join(base, "Pictures", "Memorease_Photos")
+        videos = os.path.join(base, "Videos", "Memorease_videos")
     return save, photos, videos
 
 def ensure_config_exists():

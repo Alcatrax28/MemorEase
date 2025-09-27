@@ -114,11 +114,32 @@ def _get_file_datetime(path):
 
 def _normalize_filename(filename, ext):
     base, _ = os.path.splitext(filename)
+    ext = ext.lower()
+    prefix = "IMG" if ext == ".jpg" else "VID"
+
+    # Cas 1 : format déjà correct (14 chiffres)
     m = re.search(r'(\d{14})', base)
     if m:
-        date_str = m.group(1)
-        prefix = "IMG" if ext.lower() == ".jpg" else "VID"
-        return f"{prefix}{date_str}{ext.lower()}"
+        return f"{prefix}{m.group(1)}{ext}"
+
+    # Cas 2 : format type IMG_2024-09-13_23-59
+    m = re.search(r'(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})', base)
+    if m:
+        date_str = f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}{m.group(5)}"
+        return f"{prefix}{date_str}{ext}"
+
+    # Cas 3 : format type IMG_2024-09-13 (sans heure)
+    m = re.search(r'(\d{4})-(\d{2})-(\d{2})', base)
+    if m:
+        date_key = f"{prefix}{m.group(1)}{m.group(2)}{m.group(3)}"
+        # Compteur basé sur les fichiers déjà présents dans le dossier
+        existing = [f for f in os.listdir(os.path.dirname(os.path.abspath(__file__)))
+                    if f.startswith(date_key + "_N") and f.endswith(ext)]
+        count = len(existing) + 1
+        suffix = f"_N{count:04d}"
+        return f"{date_key}{suffix}{ext}"
+
+    # Cas non reconnu : on garde le nom original
     return filename
 
 # -------------------------------
