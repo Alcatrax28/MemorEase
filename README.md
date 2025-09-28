@@ -19,7 +19,8 @@ Le téléchargement me permet alors de plus facilement trier les fichiers depuis
 > Plus rapide et ergonomique que via le gestionnaire de fichiers Windows qui est lent et à tendance à planter (via MTP).
 
 ### Tri et sauvegarde
-Une fois que vous avez terminé de trier vos médias, le bouton **Trier et sauvegarder les fichiers téléchargés** va permettre de reprendre votre vrac de médias téléchargés, les renommer selon le format suivant : `IMGaaaammjjHHMMSS.jpg` pour les photos, `VIDaaaammjjHHMMSS.mp4 pour les vidéos, et les archiver dans le dossier de votre choix, en créant un sous-répertoire par année.
+Une fois que vous avez terminé de trier vos médias, le bouton **Trier et sauvegarder les fichiers téléchargés** va permettre de reprendre votre vrac de médias téléchargés, les renommer selon le format suivant : `IMGaaaammjjHHMMSS.jpg` pour les photos, `VIDaaaammjjHHMMSS.mp4` pour les vidéos, et les archiver dans le dossier de votre choix, en créant un sous-répertoire par année.
+Avant de déplacer un fichier, celui-ci est comparé au reste du dossier pour détecter et éliminer d'éventuels doublons.
 Vous retrouverez donc plus facilement vos fichiers car le nom sera systématiquement au même format, et la gestion des albums par année rend les opérations moins lourdes.
 >
 ## Backup de sécurité

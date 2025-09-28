@@ -1,3 +1,14 @@
+Version 1.2.0
+-------------
+• Amélioration de l'ergonomie de la fonction "Tri et doublons" :
+    • La fonction fonctionne désormais en :
+        1. Renommant en bloc les images et vidéo selon la stratégie établie.
+        2. Recherche les doublons pour 1 fichier (correspondance >= 98% = image identique avec rotation).
+        3. Déplace le fichier une fois la vérification des doublons effectuée vers sa destination de sauvegarde.
+	4. Recommence à l'étape 2 avec le fichier suivant.
+    -> De cette façon, en cas d'interruption ou de plantage pendant l'opération, les fichiers déjà traités ne repassent pas dans la boucle, et il devient possible de procéder en plusieurs fois si le temps manque.
+• Déploiement d'une solution qui devrait corriger le message d'erreur lorsqu'on ouvre le programme depuis l'installateur en effectuant une mise à jour. En cas de nouveaux problèmes qui surviendraient, de nouvelles solutions seront envisagées.
+
 Version 1.1.3 (Correctif)
 • Correction d'une erreur de script dans le renommage des fichiers vidéo.
 

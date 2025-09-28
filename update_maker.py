@@ -3,6 +3,7 @@ import requests  # pyright: ignore[reportMissingModuleSource]
 import tempfile
 import subprocess
 import json
+import time
 from utils import resource_path, VERSION_FILE  # pyright: ignore[reportMissingImports]
 
 # Chemin vers version.txt (même logique que dans main.py)
@@ -111,4 +112,5 @@ def launch_new_version(new_exe_path, log_callback=None):
 
     if log_callback: log_callback("Lancement de la nouvelle version...")
     subprocess.Popen([new_exe_path], shell=True)
+    time.sleep(1.5)
     os._exit(0)  # Fermeture immédiate pour éviter le code 5 d'Inno Setup

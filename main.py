@@ -1,12 +1,12 @@
 import customtkinter as ctk                                                         # pyright: ignore[reportMissingImports]
 import tkinter as tk
-from tkinter import filedialog, scrolledtext, TclError
 import os
 import json
 import threading
+from tkinter import filedialog, scrolledtext, TclError
 from CTkMessagebox import CTkMessagebox                                             # pyright: ignore[reportMissingImports]
 from adb_tools import run_adb_download
-from sort_tools import sort_and_save_files
+from sort_tools import process_files_individually
 from backup import run_backup
 from spinner_widget import SpinnerWidget
 from update_maker import check_for_update, download_update, launch_new_version
@@ -655,7 +655,7 @@ class SortWindow(ModalWindow):
         self.videos_path = videos_path
 
         self.cancel_flag = CancelFlag()
-        self.duplicates_removed = 0  # compteur de doublons supprimés
+        self.duplicates_removed = 0
 
         try:
             self._create_widgets()
@@ -704,7 +704,6 @@ class SortWindow(ModalWindow):
         self.console.see(tk.END)
         self.console.configure(state="disabled")
 
-        # Si le message contient "[DUPLICAT]", on incrémente le compteur
         if "[DUPLICAT]" in message:
             self.duplicates_removed += 1
 
@@ -723,7 +722,7 @@ class SortWindow(ModalWindow):
         self.destroy()
 
     def _start_sort(self):
-        sort_and_save_files(
+        process_files_individually(
             self.save_path,
             self.photos_path,
             self.videos_path,
@@ -736,8 +735,6 @@ class SortWindow(ModalWindow):
         self.after(0, lambda: self.progress_label.configure(text="✅ Tri terminé"))
         self.after(0, lambda: self.finish_button.configure(state="normal"))
         self.after(0, lambda: self.cancel_button.configure(state="disabled"))
-
-        # Résumé final
         self.after(0, lambda: self._log(f"🔎 Résumé : {self.duplicates_removed} doublon(s) supprimé(s)."))
 
 class SettingsBackupWindow(ModalWindow):
