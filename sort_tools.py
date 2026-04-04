@@ -28,8 +28,8 @@ VIDEO_EXTS = {".mp4", ".mov"}
 # -------------------------------
 # Regex formats attendus
 # -------------------------------
-PHOTO_PATTERN = re.compile(r"^IMG(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:_(\d{2}))?\.(?:jpg|jpeg|png)$", re.IGNORECASE)
-VIDEO_PATTERN = re.compile(r"^VID(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:_(\d{2}))?\.(?:mp4|mov)$", re.IGNORECASE)
+PHOTO_PATTERN = re.compile(r"^IMG_(\d{4})_(\d{2})_(\d{2})-(\d{2})_(\d{2})_(\d{2})\.(?:jpg|jpeg|png)$", re.IGNORECASE)
+VIDEO_PATTERN = re.compile(r"^VID_(\d{4})_(\d{2})_(\d{2})-(\d{2})_(\d{2})_(\d{2})\.(?:mp4|mov)$", re.IGNORECASE)
 
 # -------------------------------
 # Dates
@@ -66,23 +66,25 @@ def _normalize_filename(filename, ext, save_path):
     ext = ext.lower()
     prefix = "IMG" if ext in PHOTO_EXTS else "VID"
 
+    # 14 chiffres consécutifs : YYYYmmddHHMMSS
     m = re.search(r'(\d{14})', base)
     if m:
-        return f"{prefix}{m.group(1)}{ext}"
+        d = m.group(1)
+        return f"{prefix}_{d[0:4]}_{d[4:6]}_{d[6:8]}-{d[8:10]}_{d[10:12]}_{d[12:14]}{ext}"
 
+    # Format YYYY-mm-dd_HH-MM (pas de secondes)
     m = re.search(r'(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})', base)
     if m:
-        date_str = f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}{m.group(5)}"
-        return f"{prefix}{date_str}{ext}"
+        return f"{prefix}_{m.group(1)}_{m.group(2)}_{m.group(3)}-{m.group(4)}_{m.group(5)}_00{ext}"
 
+    # Format YYYY-mm-dd uniquement → compteur _N
     m = re.search(r'(\d{4})-(\d{2})-(\d{2})', base)
     if m:
-        date_key = f"{prefix}{m.group(1)}{m.group(2)}{m.group(3)}"
+        date_key = f"{prefix}_{m.group(1)}_{m.group(2)}_{m.group(3)}"
         existing = [f for f in os.listdir(save_path)
                     if f.startswith(date_key + "_N") and f.endswith(ext)]
         count = len(existing) + 1
-        suffix = f"_N{count:04d}"
-        return f"{date_key}{suffix}{ext}"
+        return f"{date_key}_N{count:04d}{ext}"
 
     return filename
 
@@ -215,7 +217,7 @@ def process_files_individually(save_path, photos_path, videos_path, log_callback
                 dt = _get_exif_datetime(path) if is_photo else _get_file_datetime(path)
                 prefix = "IMG" if is_photo else "VID"
                 if dt:
-                    filename = f"{prefix}{dt.strftime('%Y%m%d%H%M%S')}{ext}"
+                    filename = f"{prefix}_{dt.strftime('%Y_%m_%d-%H_%M_%S')}{ext}"
                     year = dt.strftime("%Y")
                     dest_dir = os.path.join(photos_path if is_photo else videos_path, year)
                 else:
