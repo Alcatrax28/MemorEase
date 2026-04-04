@@ -5,9 +5,7 @@ block_cipher = None
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[
-        ('assets/adb/adb', 'assets/adb'),
-    ],
+    binaries=[],
     datas=[
         # --- assets/fonts ---
         ('assets/fonts/IBM-Logo.ttf',            'assets/fonts'),
@@ -22,7 +20,7 @@ a = Analysis(
     ],
     hiddenimports=[
         'sort_tools',
-        'adb_tools',
+        'mtp_tools',
         'backup',
         'spinner_widget',
         'requests',

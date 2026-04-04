@@ -1,3 +1,19 @@
+Version 1.3.1
+-------------
+• Correction des chemins par défaut (Linux) : ~/OneDrive/Images/Memorease/
+• Remplacement du module de téléchargement ADB par MTP (transfert via USB en mode "Transfert de fichiers").
+• Correction de l'affichage de l'icône sur Linux (iconbitmap → iconphoto via PIL).
+• Chargement automatique des polices personnalisées au premier lancement (fontconfig).
+• Suppression de toutes les dépendances Windows (adb.exe, DLL, scripts .bat).
+
+
+Version 1.3.0
+-------------
+• Détection des doublons lors du tri désormais facultative (option activable/désactivable).
+• Migration complète vers Linux : suppression de la compatibilité Windows.
+• Nouveau script de compilation Linux (compiler.sh).
+
+
 Version 1.2.0
 -------------
 • Amélioration de l'ergonomie de la fonction "Tri et doublons" :

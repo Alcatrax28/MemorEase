@@ -6,7 +6,7 @@ import threading
 from tkinter import filedialog, scrolledtext, TclError
 from PIL import Image, ImageTk                                                       # pyright: ignore[reportMissingImports]
 from CTkMessagebox import CTkMessagebox                                             # pyright: ignore[reportMissingImports]
-from adb_tools import run_adb_download
+from mtp_tools import run_mtp_download
 from sort_tools import process_files_individually
 from backup import run_backup
 from spinner_widget import SpinnerWidget
@@ -211,7 +211,7 @@ class MainApp(ctk.CTk):
 
     def _open_settings(self):
         if self.secondary_window is None or not tk.Toplevel.winfo_exists(self.secondary_window):
-            self.secondary_window = SettingsADBWindow(
+            self.secondary_window = SettingsMTPWindow(
                 self,
                 download_photos=self.download_photos.get(),
                 download_videos=self.download_videos.get()
@@ -276,10 +276,10 @@ class MainApp(ctk.CTk):
                                          command=self._update_state)
         self.cb_videos.pack(pady=5)
 
-        self.adb_button = ctk.CTkButton(self,
+        self.download_button = ctk.CTkButton(self,
                                           text="Commencer la sauvegarde",
                                           command=self._open_settings)
-        self.adb_button.pack(pady=10)
+        self.download_button.pack(pady=10)
 
         self.sort_button = ctk.CTkButton(self, text="Trier et sauvegarder les fichiers téléchargés",
                                          command=lambda: SettingsSortWindow(self))
@@ -299,7 +299,7 @@ class MainApp(ctk.CTk):
         self.cb_photos.configure(border_color=color)
         self.cb_videos.configure(border_color=color)
         state = "disabled" if both_false else "normal"
-        self.adb_button.configure(state=state)
+        self.download_button.configure(state=state)
 
     def _open_changelog(self):
         ChangelogWindow(self)
@@ -352,7 +352,7 @@ class MainApp(ctk.CTk):
             win = UpdateWindow(self, update_info)
             win.wait_window()
 
-class SettingsADBWindow(ModalWindow):
+class SettingsMTPWindow(ModalWindow):
     def __init__(self, master, download_photos=True, download_videos=True):
         super().__init__(master,
                          title="Paramètres de sauvegarde",
@@ -371,7 +371,7 @@ class SettingsADBWindow(ModalWindow):
             self._create_widgets()
         except Exception as e:
             CTkMessagebox(title="ErreurUI", message=str(e), icon="cancel")
-            print("Erreur _create_widgets SettingsADBWindow", repr(e))
+            print("Erreur _create_widgets SettingsMTPWindow", repr(e))
   
     def _create_widgets(self):
         frame = ctk.CTkFrame(self)
@@ -408,7 +408,7 @@ class SettingsADBWindow(ModalWindow):
 
         self.launch_button = ctk.CTkButton(
             self,
-            text="Lancer le téléchargement (ADB)",
+            text="Lancer le téléchargement (MTP)",
             command=self._launch,
             state="disabled",
             width=250
@@ -448,13 +448,13 @@ class SettingsADBWindow(ModalWindow):
         self.grab_release()
         self.unbind("<FocusIn>")
 
-        # Fermer la SettingsADBWindow
+        # Fermer la SettingsMTPWindow
         self.master.secondary_window = None
         self.destroy()
 
-        # Ouvrir la fenêtre ADB juste après destruction
+        # Ouvrir la fenêtre MTP juste après destruction
         self.master.open_modal(
-            ADBWindow,
+            MTPWindow,
             save_path=self.save_var.get(),
             photos_path=self.photos_var.get(),
             videos_path=self.videos_var.get(),
@@ -463,10 +463,10 @@ class SettingsADBWindow(ModalWindow):
             download_videos=self.download_videos
         )
 
-class ADBWindow(ModalWindow):
+class MTPWindow(ModalWindow):
     def __init__(self, master, save_path, photos_path, videos_path,
                  download_photos=True, download_videos=True):
-        super().__init__(master, title="Téléchargement ADB", size="900x500", icon_path="icon.ico")
+        super().__init__(master, title="Téléchargement MTP", size="900x500", icon_path="icon.ico")
         
         self.save_path = save_path
         self.photos_path = photos_path
@@ -481,7 +481,7 @@ class ADBWindow(ModalWindow):
             self._create_widgets()
         except Exception as e:
             CTkMessagebox(title="Erreur UI", message=str(e), icon="cancel")
-            print("Erreur _create_widgets ADBWindow", repr(e))
+            print("Erreur _create_widgets MTPWindow", repr(e))
 
         self.spinner = SpinnerWidget(self)
         self.spinner.start()  
@@ -542,7 +542,7 @@ class ADBWindow(ModalWindow):
         super()._on_close()
 
     def _start_download(self):
-        run_adb_download(
+        run_mtp_download(
             self.save_path,
             self.photos_path,
             self.videos_path,
