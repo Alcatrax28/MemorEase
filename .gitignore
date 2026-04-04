@@ -7,6 +7,10 @@ __pycache__
 build/
 dist/
 installer/
+.venv/
+
+# Binaire ADB téléchargé à la compilation
+assets/adb/adb
 
 # Fichiers système
 *.DS_Store

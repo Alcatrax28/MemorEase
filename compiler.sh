@@ -24,7 +24,15 @@ fi
 
 # --- Compilation ---
 cd "$SCRIPT_DIR"
-pyinstaller MemorEase.spec
+
+# Utilise PyInstaller du venv s'il existe, sinon celui du système
+if [ -f "$SCRIPT_DIR/.venv/bin/pyinstaller" ]; then
+    PYINSTALLER="$SCRIPT_DIR/.venv/bin/pyinstaller"
+else
+    PYINSTALLER="pyinstaller"
+fi
+
+"$PYINSTALLER" MemorEase.spec
 
 echo ""
 echo "[DONE] Exécutable généré dans : $SCRIPT_DIR/dist/"
