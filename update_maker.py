@@ -8,7 +8,7 @@ from utils import resource_path, VERSION_FILE  # pyright: ignore[reportMissingIm
 
 TEST_LOCAL = False
 LATEST_JSON_URL = "https://raw.githubusercontent.com/Alcatrax28/MemorEase/main/latest.json"
-TEMP_EXE_NAME = "MemorEase_Update.exe"
+TEMP_EXE_NAME = "MemorEase_Update"
 
 # --- Lecture de la version locale ---
 def get_local_version():
@@ -107,7 +107,8 @@ def launch_new_version(new_exe_path, log_callback=None):
         if log_callback: log_callback("Fichier de mise à jour invalide ou corrompu. Abandon du lancement.")
         return False
 
+    os.chmod(new_exe_path, 0o755)
     if log_callback: log_callback("Lancement de la nouvelle version...")
     subprocess.Popen([new_exe_path])
     time.sleep(1.5)
-    os._exit(0)  # Fermeture immédiate pour éviter le code 5 d'Inno Setup
+    os._exit(0)

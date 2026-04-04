@@ -1,8 +1,6 @@
 import os
 import sys
 import json
-import getpass
-import string
 import hashlib
 import imagehash        # pyright: ignore[reportMissingImports]
 from PIL import Image   # pyright: ignore[reportMissingImports]
@@ -43,22 +41,6 @@ def read_version() -> str:
     except FileNotFoundError:
         return ""
 
-def find_onedrive():
-    """Détecte le dossier OneDrive sur la machine."""
-    for drive in (f"{d}:\\" for d in string.ascii_uppercase):
-        users_dir = os.path.join(drive, "Users")
-        if not os.path.isdir(users_dir):
-            continue
-        for user_folder in os.listdir(users_dir):
-            base = os.path.join(users_dir, user_folder)
-            if not os.path.isdir(base):
-                continue
-            for name in ("OneDrive", "Onedrive", "onedrive"):
-                path = os.path.join(base, name)
-                if os.path.isdir(path):
-                    return path
-    return None
-
 def file_md5(path, block_size=65536):
     md5 = hashlib.md5()
     with open(path, "rb") as f:
@@ -76,20 +58,11 @@ def image_hash(path):
 def get_default_paths():
     """
     Retourne les chemins par défaut pour save, photos et vidéos.
-    Utilise OneDrive si disponible, sinon les dossiers locaux.
     """
-    od = find_onedrive()
-    user = getpass.getuser()
-    if od:
-        save   = os.path.join(od, "Memorease", "Downloads")
-        photos = os.path.join(od, "Memorease", "Photos")
-        videos = os.path.join(od, "Memorease", "Mes videos")
-    else:
-        root_drive = os.getcwd().split(os.sep)[0] + "\\"
-        base       = os.path.join(root_drive, "Users", user)
-        save   = os.path.join(base, "Pictures", "Memorease_Downloads")
-        photos = os.path.join(base, "Pictures", "Memorease_Photos")
-        videos = os.path.join(base, "Videos", "Memorease_videos")
+    home   = os.path.expanduser("~")
+    save   = os.path.join(home, "Memorease", "Downloads")
+    photos = os.path.join(home, "Memorease", "Photos")
+    videos = os.path.join(home, "Memorease", "Videos")
     return save, photos, videos
 
 def ensure_config_exists():

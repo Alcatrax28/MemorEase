@@ -92,7 +92,10 @@ class UpdateWindow(ctk.CTkToplevel):
         self.title("Mise à jour en cours")
         self.geometry("900x500")
         ico_path = os.path.abspath(resource_path("icon.ico"))
-        self.iconbitmap(ico_path)
+        try:
+            self.iconbitmap(ico_path)
+        except Exception:
+            pass
 
 
         # Rendre la fenêtre modale
@@ -176,6 +179,8 @@ class MainApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
+        self._load_fonts()
+
         self.download_photos = ctk.BooleanVar(value=True)
         self.download_videos = ctk.BooleanVar(value=True)
         self.secondary_window = None
@@ -183,8 +188,6 @@ class MainApp(ctk.CTk):
         self._create_menu()
         self._create_main_widgets()
         self._create_footer()
-
-        # Définition de la police personnalisée IBM Plex Mono
 
         default_font = ctk.CTkFont(family="IBM Plex Mono", size=12)
         self.option_add("*Font", default_font)
@@ -196,6 +199,19 @@ class MainApp(ctk.CTk):
         self.resizable(False, False)
    
         self.bind("<Map>", lambda e: self.after(50, self._force_icon))
+
+    def _load_fonts(self):
+        try:
+            from tkextrafont import Font as ExtraFont  # pyright: ignore[reportMissingImports]
+            for rel_path, family in [
+                ("assets/fonts/IBM-Logo.ttf",            "IBM Logo"),
+                ("assets/fonts/IBMPlexMono-Regular.ttf", "IBM Plex Mono"),
+            ]:
+                path = resource_path(rel_path)
+                if os.path.isfile(path):
+                    ExtraFont(file=path, family=family)
+        except Exception as e:
+            print(f"Chargement des polices échoué : {e}")
 
     def _force_icon(self):
         ico_path = resource_path("icon.ico")
@@ -417,7 +433,7 @@ class SettingsADBWindow(ModalWindow):
     def _browse(self, var):
         path = filedialog.askdirectory()
         if path:
-            var.set(path.replace("/", "\\"))
+            var.set(path)
 
     def _restore_defaults(self):
         save, photos, videos = get_default_paths()
@@ -623,7 +639,7 @@ class SettingsSortWindow(ModalWindow):
     def _browse(self, var):
         path = filedialog.askdirectory()
         if path:
-            var.set(path.replace("/", "\\"))
+            var.set(path)
 
     def _restore_defaults(self):
         save, photos, videos = get_default_paths()
@@ -820,7 +836,7 @@ class SettingsBackupWindow(ModalWindow):
     def _browse(self, var, is_backup=False):
         path = filedialog.askdirectory()
         if path:
-            var.set(path.replace("/", "\\"))
+            var.set(path)
             if is_backup:
                 self.entry_bu.configure(border_color="green")
 

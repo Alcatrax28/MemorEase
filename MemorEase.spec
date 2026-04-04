@@ -5,34 +5,31 @@ block_cipher = None
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=[
+        ('assets/adb/adb', 'assets/adb'),
+    ],
     datas=[
-        # --- assets/adb ---
-        ('assets/adb/adb.exe', 'assets/adb'),
-        ('assets/adb/AdbWinApi.dll', 'assets/adb'),
-        ('assets/adb/AdbWinUsbApi.dll', 'assets/adb'),
-
         # --- assets/fonts ---
-        ('assets/fonts/IBM-Logo.ttf', 'assets/fonts'),
+        ('assets/fonts/IBM-Logo.ttf',            'assets/fonts'),
         ('assets/fonts/IBMPlexMono-Regular.ttf', 'assets/fonts'),
 
         # --- fichiers racine de assets ---
         ('assets/changelog.txt', 'assets'),
-        ('assets/version.txt', 'assets'),
+        ('assets/version.txt',   'assets'),
 
         # --- icône ---
         ('icon.ico', '.'),
     ],
     hiddenimports=[
-        'sort_tools',  
-        'adb_tools',   
-        'backup',      
+        'sort_tools',
+        'adb_tools',
+        'backup',
         'spinner_widget',
         'requests',
         'CTkMessagebox',
         'update_maker',
         'utils',
-        'config_manager',
+        'tkextrafont',
     ],
     hookspath=[],
     hooksconfig={},
@@ -57,7 +54,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,                   # pas de console
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

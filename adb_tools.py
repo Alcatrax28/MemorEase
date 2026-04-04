@@ -11,17 +11,12 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 def get_adb_path():
-    adb_embedded = resource_path(os.path.join("assets", "adb", "adb.exe"))
+    adb_embedded = resource_path(os.path.join("assets", "adb", "adb"))
     if os.path.isfile(adb_embedded):
         return adb_embedded
     return "adb"  # fallback système
 
 ADB_PATH = get_adb_path()
-
-startupinfo = None
-if sys.platform == "win32":
-    startupinfo = subprocess.STARTUPINFO()
-    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
 def _list_all_files(root_dir):
     all_files = set()
@@ -38,10 +33,8 @@ def run_adb_download(save_path, photos_path, videos_path,
     # --- Connexion ADB ---
     try:
         subprocess.run([ADB_PATH, "start-server"],
-                       stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                       startupinfo=startupinfo)
-        output = subprocess.check_output([ADB_PATH, "devices"],
-                                         startupinfo=startupinfo).decode("utf-8", errors="ignore")
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output = subprocess.check_output([ADB_PATH, "devices"]).decode("utf-8", errors="ignore")
         output_lines = output.strip().splitlines()
     except Exception as e:
         log_callback(f"[ERREUR] Impossible d'exécuter adb : {repr(e)}")
@@ -78,8 +71,7 @@ def run_adb_download(save_path, photos_path, videos_path,
     remote_base_path = None
     for path in possible_paths:
         try:
-            output = subprocess.check_output([ADB_PATH, "shell", "ls", path],
-                                            startupinfo=startupinfo).decode("utf-8", errors="ignore")
+            output = subprocess.check_output([ADB_PATH, "shell", "ls", path]).decode("utf-8", errors="ignore")
             files = [f.strip() for f in output.splitlines() if f.strip()]
             if files:
                 remote_files = files
@@ -129,8 +121,7 @@ def run_adb_download(save_path, photos_path, videos_path,
             try:
                 subprocess.run([ADB_PATH, "pull", f"{remote_base_path}/{filename}",
                                 os.path.join(save_path, filename)],
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               startupinfo=startupinfo)
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 downloaded_files += 1
             except Exception as e:
                 log_callback(f"[ERREUR] {filename} : {repr(e)}")
