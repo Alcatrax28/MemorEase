@@ -83,7 +83,8 @@ def ensure_config_exists():
 def load_paths():
     """
     Tente de charger les chemins depuis config.json (externe).
-    Si le fichier est manquant, mal formé ou incomplet, retourne les valeurs par défaut.
+    Si le fichier est manquant, mal formé, incomplet ou contient des chemins
+    Windows (ex: C:\\), retourne les valeurs par défaut Linux.
     """
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -93,7 +94,8 @@ def load_paths():
                 data.get("photos"),
                 data.get("videos"),
             )
-            if all(isinstance(p, str) and p for p in (save, photos, videos)):
+            if all(isinstance(p, str) and p and p.startswith("/")
+                   for p in (save, photos, videos)):
                 return save, photos, videos
     except Exception:
         pass  # Silencieux, fallback automatique

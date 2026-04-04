@@ -17,6 +17,7 @@ a = Analysis(
 
         # --- icône ---
         ('icon.ico', '.'),
+        ('icon.png', '.'),
     ],
     hiddenimports=[
         'sort_tools',

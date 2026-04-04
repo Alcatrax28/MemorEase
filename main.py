@@ -20,9 +20,12 @@ from utils import (
 )
 
 def set_window_icon(window, ico_path):
-    """Définit l'icône d'une fenêtre Tk de façon compatible Linux (.ico via PIL)."""
+    """Définit l'icône d'une fenêtre Tk de façon compatible Linux (PNG préféré)."""
     try:
-        img = Image.open(ico_path)
+        # Préférer le PNG sur Linux (meilleure compatibilité Tk)
+        png_path = os.path.splitext(ico_path)[0] + ".png"
+        path = png_path if os.path.isfile(png_path) else ico_path
+        img = Image.open(path)
         photo = ImageTk.PhotoImage(img)
         window._icon_photo = photo  # conserver la référence pour éviter le GC
         window.iconphoto(True, photo)
