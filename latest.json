@@ -1,6 +1,6 @@
 {
-  "version": "1.3.0",
-  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v1.3.0/MemorEase",
+  "version": "1.3.1",
+  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v1.3.1/MemorEase",
   "changelog": [
     "Migration vers Linux.",
     "Suppression de la compatibilité Windows."

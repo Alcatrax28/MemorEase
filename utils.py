@@ -60,9 +60,10 @@ def get_default_paths():
     Retourne les chemins par défaut pour save, photos et vidéos.
     """
     home   = os.path.expanduser("~")
-    save   = os.path.join(home, "Memorease", "Downloads")
-    photos = os.path.join(home, "Memorease", "Photos")
-    videos = os.path.join(home, "Memorease", "Videos")
+    base   = os.path.join(home, "OneDrive", "Images", "Memorease")
+    save   = os.path.join(base, "tmp")
+    photos = os.path.join(base, "Photos")
+    videos = os.path.join(base, "Videos")
     return save, photos, videos
 
 def ensure_config_exists():
