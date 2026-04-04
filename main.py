@@ -201,17 +201,19 @@ class MainApp(ctk.CTk):
         self.bind("<Map>", lambda e: self.after(50, self._force_icon))
 
     def _load_fonts(self):
-        try:
-            from tkextrafont import Font as ExtraFont  # pyright: ignore[reportMissingImports]
-            for rel_path, family in [
-                ("assets/fonts/IBM-Logo.ttf",            "IBM Logo"),
-                ("assets/fonts/IBMPlexMono-Regular.ttf", "IBM Plex Mono"),
-            ]:
-                path = resource_path(rel_path)
-                if os.path.isfile(path):
-                    ExtraFont(file=path, family=family)
-        except Exception as e:
-            print(f"Chargement des polices échoué : {e}")
+        import shutil
+        import subprocess
+        fonts_dir = os.path.expanduser("~/.local/share/fonts/MemorEase")
+        os.makedirs(fonts_dir, exist_ok=True)
+        changed = False
+        for rel_path in ["assets/fonts/IBM-Logo.ttf", "assets/fonts/IBMPlexMono-Regular.ttf"]:
+            src = resource_path(rel_path)
+            dst = os.path.join(fonts_dir, os.path.basename(src))
+            if os.path.isfile(src) and not os.path.isfile(dst):
+                shutil.copy2(src, dst)
+                changed = True
+        if changed:
+            subprocess.run(["fc-cache", "-f", fonts_dir], capture_output=True)
 
     def _force_icon(self):
         ico_path = resource_path("icon.ico")
