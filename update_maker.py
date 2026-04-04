@@ -6,9 +6,6 @@ import json
 import time
 from utils import resource_path, VERSION_FILE  # pyright: ignore[reportMissingImports]
 
-# Chemin vers version.txt (même logique que dans main.py)
-VERSION_FILE = resource_path(os.path.join("assets", "version.txt"))
-
 TEST_LOCAL = False
 LATEST_JSON_URL = "https://raw.githubusercontent.com/Alcatrax28/MemorEase/main/latest.json"
 TEMP_EXE_NAME = "MemorEase_Update.exe"
@@ -111,6 +108,6 @@ def launch_new_version(new_exe_path, log_callback=None):
         return False
 
     if log_callback: log_callback("Lancement de la nouvelle version...")
-    subprocess.Popen([new_exe_path], shell=True)
+    subprocess.Popen([new_exe_path])
     time.sleep(1.5)
     os._exit(0)  # Fermeture immédiate pour éviter le code 5 d'Inno Setup

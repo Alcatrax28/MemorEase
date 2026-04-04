@@ -125,3 +125,12 @@ def load_paths():
         pass  # Silencieux, fallback automatique
 
     return get_default_paths()
+
+def save_paths(save, photos, videos):
+    """
+    Sauvegarde les chemins dans config.json (externe, à côté du .exe).
+    """
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+    data = {"save": save, "photos": photos, "videos": videos}
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)

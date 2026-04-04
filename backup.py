@@ -81,6 +81,19 @@ def run_backup(photo_src, video_src, backup_dest,
             if log_callback:
                 log_callback(f"[COPIÉ]\t{rel.ljust(name_col_width)}")
 
+        to_delete = [rel for rel in dst_files if rel not in src_files]
+        if to_delete:
+            if not src_files:
+                if log_callback:
+                    log_callback(f"[WARN] Dossier source vide ou introuvable ({src_root}). "
+                                 f"Suppression des {len(to_delete)} fichier(s) du backup annulée par sécurité.")
+                done += len(to_delete)
+                if progress_callback:
+                    progress_callback(done, total)
+                return True
+            if log_callback:
+                log_callback(f"[INFO] {len(to_delete)} fichier(s) absent(s) de la source vont être supprimés du backup.")
+
         for rel, dst_path in dst_files.items():
             if cancel_flag and cancel_flag.cancelled:
                 if log_callback:
@@ -88,16 +101,28 @@ def run_backup(photo_src, video_src, backup_dest,
                 return False
             if rel not in src_files:
                 try:
+                    os.chmod(dst_path, 0o666)
                     os.remove(dst_path)
-                except FileNotFoundError:
-                    pass
-                done += 1
-                if progress_callback:
-                    progress_callback(done, total)
-                if log_callback:
-                    log_callback(f"[SUPPRIMÉ]\t{rel.ljust(name_col_width)}\t absent du dossier source")
-
+                    done += 1
+                    if progress_callback:
+                        progress_callback(done, total)
+                    if log_callback:
+                        log_callback(f"[SUPPRIMÉ]\t{rel.ljust(name_col_width)}\t absent du dossier source")
+                except PermissionError:
+                    done += 1
+                    if progress_callback:
+                        progress_callback(done, total)
+                    if log_callback:
+                        log_callback(f"[WARN]\t{rel.ljust(name_col_width)}\tLe fichier n'a pas pu être supprimé (accès refusé)")
+                except Exception as e:
+                    done += 1
+                    if progress_callback:
+                        progress_callback(done, total)
+                    if log_callback:
+                        log_callback(f"[WARN]\t{rel.ljust(name_col_width)}\tLe fichier n'a pas pu être supprimé ({type(e).__name__}: {e})")
         return True
+
+
 
     ok1 = mirror(photo_src, photos_dst)
     if not ok1:

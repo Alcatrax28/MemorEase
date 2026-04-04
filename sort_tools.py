@@ -20,10 +20,16 @@ def format_log(code, action, target=""):
         return f"{code_col}{action}"
 
 # -------------------------------
+# Extensions reconnues
+# -------------------------------
+PHOTO_EXTS = {".jpg", ".jpeg", ".png"}
+VIDEO_EXTS = {".mp4", ".mov"}
+
+# -------------------------------
 # Regex formats attendus
 # -------------------------------
-PHOTO_PATTERN = re.compile(r"^IMG(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:_(\d{2}))?\.jpg$", re.IGNORECASE)
-VIDEO_PATTERN = re.compile(r"^VID(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:_(\d{2}))?\.mp4$", re.IGNORECASE)
+PHOTO_PATTERN = re.compile(r"^IMG(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:_(\d{2}))?\.(?:jpg|jpeg|png)$", re.IGNORECASE)
+VIDEO_PATTERN = re.compile(r"^VID(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:_(\d{2}))?\.(?:mp4|mov)$", re.IGNORECASE)
 
 # -------------------------------
 # Dates
@@ -55,10 +61,10 @@ def _get_file_datetime(path):
 # -------------------------------
 # Normalisation nom
 # -------------------------------
-def _normalize_filename(filename, ext):
+def _normalize_filename(filename, ext, save_path):
     base, _ = os.path.splitext(filename)
     ext = ext.lower()
-    prefix = "IMG" if ext == ".jpg" else "VID"
+    prefix = "IMG" if ext in PHOTO_EXTS else "VID"
 
     m = re.search(r'(\d{14})', base)
     if m:
@@ -72,7 +78,7 @@ def _normalize_filename(filename, ext):
     m = re.search(r'(\d{4})-(\d{2})-(\d{2})', base)
     if m:
         date_key = f"{prefix}{m.group(1)}{m.group(2)}{m.group(3)}"
-        existing = [f for f in os.listdir(os.path.dirname(os.path.abspath(__file__)))
+        existing = [f for f in os.listdir(save_path)
                     if f.startswith(date_key + "_N") and f.endswith(ext)]
         count = len(existing) + 1
         suffix = f"_N{count:04d}"
@@ -100,7 +106,7 @@ def process_files_individually(save_path, photos_path, videos_path, log_callback
             log_callback(format_log("STOP", "Opération interrompue par l'utilisateur"))
             return
         ext = os.path.splitext(f)[1].lower()
-        new_name = _normalize_filename(f, ext)
+        new_name = _normalize_filename(f, ext, save_path)
         if new_name != f:
             try:
                 os.rename(os.path.join(save_path, f), os.path.join(save_path, new_name))
@@ -139,7 +145,7 @@ def process_files_individually(save_path, photos_path, videos_path, log_callback
         is_duplicate = False
         duplicate_of = None
 
-        if ext == ".jpg":
+        if ext in PHOTO_EXTS:
             try:
                 img = Image.open(path).convert("RGB")
                 h = imagehash.phash(img)
@@ -173,7 +179,7 @@ def process_files_individually(save_path, photos_path, videos_path, log_callback
             except Exception as e:
                 log_callback(format_log("ERREUR", f"Impossible d’analyser {filename}", str(e)))
 
-        elif ext == ".mp4":
+        elif ext in VIDEO_EXTS:
             h = file_md5(path)
             if h in seen_videos.values():
                 duplicate_of = [k for k, v in seen_videos.items() if v == h][0]
@@ -201,13 +207,14 @@ def process_files_individually(save_path, photos_path, videos_path, log_callback
             elif match_video:
                 year = match_video.group(1)
                 dest_dir = os.path.join(videos_path, year)
-            elif ext in (".jpg", ".mp4"):
-                dt = _get_exif_datetime(path) if ext == ".jpg" else _get_file_datetime(path)
-                prefix = "IMG" if ext == ".jpg" else "VID"
+            elif ext in PHOTO_EXTS | VIDEO_EXTS:
+                is_photo = ext in PHOTO_EXTS
+                dt = _get_exif_datetime(path) if is_photo else _get_file_datetime(path)
+                prefix = "IMG" if is_photo else "VID"
                 if dt:
                     filename = f"{prefix}{dt.strftime('%Y%m%d%H%M%S')}{ext}"
                     year = dt.strftime("%Y")
-                    dest_dir = os.path.join(photos_path if ext == ".jpg" else videos_path, year)
+                    dest_dir = os.path.join(photos_path if is_photo else videos_path, year)
                 else:
                     dest_dir = error_dir
                     log_callback(format_log("ERREUR", f"{filename} déplacé vers Erreur_tri", "pas de date"))

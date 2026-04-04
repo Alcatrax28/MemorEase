@@ -75,6 +75,7 @@ def run_adb_download(save_path, photos_path, videos_path,
     ]
 
     remote_files = []
+    remote_base_path = None
     for path in possible_paths:
         try:
             output = subprocess.check_output([ADB_PATH, "shell", "ls", path],
@@ -82,6 +83,7 @@ def run_adb_download(save_path, photos_path, videos_path,
             files = [f.strip() for f in output.splitlines() if f.strip()]
             if files:
                 remote_files = files
+                remote_base_path = path
                 break
         except subprocess.CalledProcessError:
             continue  # Ignore paths that fail
@@ -104,25 +106,28 @@ def run_adb_download(save_path, photos_path, videos_path,
 
         ext = os.path.splitext(filename)[1].lower()
 
-        if ext == ".jpg" and not download_photos:
+        PHOTO_EXTS = {".jpg", ".jpeg", ".png"}
+        VIDEO_EXTS = {".mp4", ".mov"}
+
+        if ext in PHOTO_EXTS and not download_photos:
             log_callback(f"[IGNORÉ] Photos désactivées : {filename}")
             processed_files += 1
             progress_callback(processed_files, total_files)
             continue
-        if ext == ".mp4" and not download_videos:
+        if ext in VIDEO_EXTS and not download_videos:
             log_callback(f"[IGNORÉ] Vidéos désactivées : {filename}")
             processed_files += 1
             progress_callback(processed_files, total_files)
             continue
 
-        if ext == ".jpg" and filename in existing_photos:
+        if ext in PHOTO_EXTS and filename in existing_photos:
             log_callback(f"[IGNORÉ] Photo déjà présente : {filename}")
-        elif ext == ".mp4" and filename in existing_videos:
+        elif ext in VIDEO_EXTS and filename in existing_videos:
             log_callback(f"[IGNORÉ] Vidéo déjà présente : {filename}")
-        elif ext in [".jpg", ".mp4"]:
+        elif ext in PHOTO_EXTS | VIDEO_EXTS:
             log_callback(f"[DL] Téléchargement : {filename}")
             try:
-                subprocess.run([ADB_PATH, "pull", f"/sdcard/DCIM/Camera/{filename}",
+                subprocess.run([ADB_PATH, "pull", f"{remote_base_path}/{filename}",
                                 os.path.join(save_path, filename)],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                startupinfo=startupinfo)

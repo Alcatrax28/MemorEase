@@ -10,13 +10,12 @@ from sort_tools import process_files_individually
 from backup import run_backup
 from spinner_widget import SpinnerWidget
 from update_maker import check_for_update, download_update, launch_new_version
-from config_manager import load_paths, save_paths, get_default_paths                # pyright: ignore[reportMissingImports]
-
 from utils import (
-     resource_path, 
+     resource_path,
      external_path,
      get_default_paths,
      load_paths,
+     save_paths,
 )
 
 class ModalWindow(ctk.CTkToplevel):
@@ -72,7 +71,7 @@ class ModalWindow(ctk.CTkToplevel):
     def _on_minimize(self):
         if self.state() == "iconic":
             try:
-                self.grab.release()
+                self.grab_release()
             except TclError:
                 pass
             
