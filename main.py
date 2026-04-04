@@ -561,6 +561,7 @@ class SettingsSortWindow(ModalWindow):
         self.var_save   = tk.StringVar(value=save)
         self.var_photos = tk.StringVar(value=photos)
         self.var_videos = tk.StringVar(value=videos)
+        self.var_check_duplicates = ctk.BooleanVar(value=True)
 
         try:
             self._create_widgets()
@@ -597,6 +598,14 @@ class SettingsSortWindow(ModalWindow):
         ctk.CTkEntry(frame, textvariable=self.var_videos, width=400).grid(row=3, column=1, sticky="ew", padx=5)
         ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_videos)).grid(row=3, column=2, padx=5)
 
+        # Option détection doublons
+        ctk.CTkCheckBox(
+            self,
+            text="Détecter et supprimer les doublons",
+            variable=self.var_check_duplicates,
+            border_width=2
+        ).pack(pady=(10, 0))
+
         # Bouton lancer
         self.launch_button = ctk.CTkButton(
             self,
@@ -605,7 +614,7 @@ class SettingsSortWindow(ModalWindow):
             state="disabled",
             width=250
         )
-        self.launch_button.pack(pady=20)
+        self.launch_button.pack(pady=10)
 
         for var in (self.var_save, self.var_photos, self.var_videos):
             var.trace_add("write", lambda *_: self._update_launch_button())
@@ -642,16 +651,18 @@ class SettingsSortWindow(ModalWindow):
             SortWindow,
             save_path=self.var_save.get(),
             photos_path=self.var_photos.get(),
-            videos_path=self.var_videos.get()
+            videos_path=self.var_videos.get(),
+            check_duplicates=self.var_check_duplicates.get()
         )
 
 class SortWindow(ModalWindow):
-    def __init__(self, master, save_path, photos_path, videos_path):
+    def __init__(self, master, save_path, photos_path, videos_path, check_duplicates=True):
         super().__init__(master, title="Tri et sauvegarde", size="900x500", icon_path="icon.ico")
 
         self.save_path = save_path
         self.photos_path = photos_path
         self.videos_path = videos_path
+        self.check_duplicates = check_duplicates
 
         self.cancel_flag = CancelFlag()
         self.duplicates_removed = 0
@@ -727,7 +738,8 @@ class SortWindow(ModalWindow):
             self.videos_path,
             log_callback=lambda msg: self.after(0, self._log, msg),
             progress_callback=lambda p: self.after(0, self._update_progress, p),
-            cancel_flag=self.cancel_flag
+            cancel_flag=self.cancel_flag,
+            check_duplicates=self.check_duplicates
         )
 
         self.spinner.stop("✅")

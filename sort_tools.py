@@ -89,7 +89,7 @@ def _normalize_filename(filename, ext, save_path):
 # -------------------------------
 # Fonction principale
 # -------------------------------
-def process_files_individually(save_path, photos_path, videos_path, log_callback, progress_callback, cancel_flag):
+def process_files_individually(save_path, photos_path, videos_path, log_callback, progress_callback, cancel_flag, check_duplicates=True):
     if not os.path.isdir(save_path):
         log_callback(format_log("ERREUR", "Dossier de sauvegarde introuvable", save_path))
         return
@@ -122,7 +122,8 @@ def process_files_individually(save_path, photos_path, videos_path, log_callback
         done_ops += 1
         progress_callback(int(done_ops / total_ops * 100))
 
-    log_callback(format_log("INFO", "Étape 2 : Détection doublons et déplacement..."))
+    etape2_label = "Étape 2 : Détection doublons et déplacement..." if check_duplicates else "Étape 2 : Déplacement des fichiers..."
+    log_callback(format_log("INFO", etape2_label))
     seen_images = {}
     seen_videos = {}
     error_dir = os.path.join(save_path, "Erreur_tri")
@@ -140,54 +141,56 @@ def process_files_individually(save_path, photos_path, videos_path, log_callback
             continue
 
         ext = os.path.splitext(filename)[1].lower()
-        log_callback(format_log("SEARCH", f"recherche de doublons pour {filename}"))
 
         is_duplicate = False
         duplicate_of = None
 
-        if ext in PHOTO_EXTS:
-            try:
-                img = Image.open(path).convert("RGB")
-                h = imagehash.phash(img)
-                hash_size = h.hash.size
+        if check_duplicates:
+            log_callback(format_log("SEARCH", f"recherche de doublons pour {filename}"))
 
-                def is_similar(h1, h2):
-                    distance = h1 - h2
-                    similarity = 1 - (distance / hash_size)
-                    return similarity >= 0.98
+            if ext in PHOTO_EXTS:
+                try:
+                    img = Image.open(path).convert("RGB")
+                    h = imagehash.phash(img)
+                    hash_size = h.hash.size
 
-                for prev, prev_hash in seen_images.items():
-                    if is_similar(h, prev_hash):
-                        is_duplicate = True
-                        duplicate_of = prev
-                        break
-                    for angle in (90, 180, 270):
-                        rotated_hash = imagehash.phash(img.rotate(angle, expand=True))
-                        if is_similar(rotated_hash, prev_hash):
+                    def is_similar(h1, h2):
+                        distance = h1 - h2
+                        similarity = 1 - (distance / hash_size)
+                        return similarity >= 0.98
+
+                    for prev, prev_hash in seen_images.items():
+                        if is_similar(h, prev_hash):
                             is_duplicate = True
                             duplicate_of = prev
                             break
+                        for angle in (90, 180, 270):
+                            rotated_hash = imagehash.phash(img.rotate(angle, expand=True))
+                            if is_similar(rotated_hash, prev_hash):
+                                is_duplicate = True
+                                duplicate_of = prev
+                                break
+                        if is_duplicate:
+                            break
+
                     if is_duplicate:
-                        break
+                        os.remove(path)
+                        log_callback(format_log("DUPLICAT", f"{filename} supprimé", f"similaire à {duplicate_of}"))
+                    else:
+                        seen_images[filename] = h
 
-                if is_duplicate:
+                except Exception as e:
+                    log_callback(format_log("ERREUR", f"Impossible d’analyser {filename}", str(e)))
+
+            elif ext in VIDEO_EXTS:
+                h = file_md5(path)
+                if h in seen_videos.values():
+                    duplicate_of = [k for k, v in seen_videos.items() if v == h][0]
                     os.remove(path)
-                    log_callback(format_log("DUPLICAT", f"{filename} supprimé", f"similaire à {duplicate_of}"))
+                    log_callback(format_log("DUPLICAT", f"{filename} supprimé", f"identique à {duplicate_of}"))
+                    is_duplicate = True
                 else:
-                    seen_images[filename] = h
-
-            except Exception as e:
-                log_callback(format_log("ERREUR", f"Impossible d’analyser {filename}", str(e)))
-
-        elif ext in VIDEO_EXTS:
-            h = file_md5(path)
-            if h in seen_videos.values():
-                duplicate_of = [k for k, v in seen_videos.items() if v == h][0]
-                os.remove(path)
-                log_callback(format_log("DUPLICAT", f"{filename} supprimé", f"identique à {duplicate_of}"))
-                is_duplicate = True
-            else:
-                seen_videos[filename] = h
+                    seen_videos[filename] = h
 
         done_ops += 1
         progress_callback(int(done_ops / total_ops * 100))
