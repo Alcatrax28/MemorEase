@@ -4,6 +4,7 @@ import os
 import json
 import threading
 from tkinter import filedialog, scrolledtext, TclError
+from PIL import Image, ImageTk                                                       # pyright: ignore[reportMissingImports]
 from CTkMessagebox import CTkMessagebox                                             # pyright: ignore[reportMissingImports]
 from adb_tools import run_adb_download
 from sort_tools import process_files_individually
@@ -17,6 +18,17 @@ from utils import (
      load_paths,
      save_paths,
 )
+
+def set_window_icon(window, ico_path):
+    """Définit l'icône d'une fenêtre Tk de façon compatible Linux (.ico via PIL)."""
+    try:
+        img = Image.open(ico_path)
+        photo = ImageTk.PhotoImage(img)
+        window._icon_photo = photo  # conserver la référence pour éviter le GC
+        window.iconphoto(True, photo)
+    except Exception as e:
+        print(f"Erreur icône: {e}")
+
 
 class ModalWindow(ctk.CTkToplevel):
     def __init__(self, master, title="Fenêtre", size="600x400", icon_path=None):
@@ -33,21 +45,6 @@ class ModalWindow(ctk.CTkToplevel):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _safe_set_icon(self, icon_path):
-    
-        tried = []
-
-        def try_icon(path):
-            try:
-                # Vérifier si l'icône est déjà appliquée
-                current = self.iconbitmap()
-                if current and os.path.abspath(current) == os.path.abspath(path):
-                    return True  # déjà la bonne icône
-                self.iconbitmap(path)
-                return True
-            except Exception as e:
-                tried.append((path, repr(e)))
-                return False
-
         candidates = []
         if icon_path:
             if os.path.isabs(icon_path):
@@ -62,11 +59,9 @@ class ModalWindow(ctk.CTkToplevel):
                 candidates.append(external_path(rel))
 
         for c in candidates:
-            if c and os.path.exists(c) and try_icon(c):
+            if c and os.path.exists(c):
+                set_window_icon(self, c)
                 return
-
-        # Optionnel : log si aucune icône trouvée
-        # print("Icon load failed, tried:", tried)
 
     def _on_minimize(self):
         if self.state() == "iconic":
@@ -91,11 +86,7 @@ class UpdateWindow(ctk.CTkToplevel):
         super().__init__(master)
         self.title("Mise à jour en cours")
         self.geometry("900x500")
-        ico_path = os.path.abspath(resource_path("icon.ico"))
-        try:
-            self.iconbitmap(ico_path)
-        except Exception:
-            pass
+        set_window_icon(self, resource_path("icon.ico"))
 
 
         # Rendre la fenêtre modale
@@ -216,11 +207,7 @@ class MainApp(ctk.CTk):
             subprocess.run(["fc-cache", "-f", fonts_dir], capture_output=True)
 
     def _force_icon(self):
-        ico_path = resource_path("icon.ico")
-        try:
-            self.iconbitmap(ico_path)
-        except Exception as e:
-            print("Erreur icône:", e)
+        set_window_icon(self, resource_path("icon.ico"))
 
     def _open_settings(self):
         if self.secondary_window is None or not tk.Toplevel.winfo_exists(self.secondary_window):
@@ -1002,11 +989,7 @@ class ChangelogWindow(ctk.CTkToplevel):
         self.textbox.configure(state="disabled")  # Lecture seule
 
     def _force_icon(self):
-        ico_path = resource_path("icon.ico")
-        try:
-            self.iconbitmap(ico_path)
-        except Exception as e:
-            print("Erreur icône:", e)
+        set_window_icon(self, resource_path("icon.ico"))
 
 if __name__ == "__main__":
 
