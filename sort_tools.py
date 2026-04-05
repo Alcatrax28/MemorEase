@@ -154,25 +154,16 @@ def process_files_individually(save_path, photos_path, videos_path, log_callback
                 try:
                     img = Image.open(path).convert("RGB")
                     h = imagehash.phash(img)
-                    hash_size = h.hash.size
-
-                    def is_similar(h1, h2):
-                        distance = h1 - h2
-                        similarity = 1 - (distance / hash_size)
-                        return similarity >= 0.98
+                    # Pré-calcul des 3 rotations une seule fois (et non à chaque comparaison)
+                    all_hashes = [h] + [
+                        imagehash.phash(img.rotate(angle, expand=True))
+                        for angle in (90, 180, 270)
+                    ]
 
                     for prev, prev_hash in seen_images.items():
-                        if is_similar(h, prev_hash):
+                        if any((rh - prev_hash) <= 1 for rh in all_hashes):
                             is_duplicate = True
                             duplicate_of = prev
-                            break
-                        for angle in (90, 180, 270):
-                            rotated_hash = imagehash.phash(img.rotate(angle, expand=True))
-                            if is_similar(rotated_hash, prev_hash):
-                                is_duplicate = True
-                                duplicate_of = prev
-                                break
-                        if is_duplicate:
                             break
 
                     if is_duplicate:
@@ -187,7 +178,7 @@ def process_files_individually(save_path, photos_path, videos_path, log_callback
             elif ext in VIDEO_EXTS:
                 h = file_md5(path)
                 if h in seen_videos.values():
-                    duplicate_of = [k for k, v in seen_videos.items() if v == h][0]
+                    duplicate_of = next(k for k, v in seen_videos.items() if v == h)
                     os.remove(path)
                     log_callback(format_log("DUPLICAT", f"{filename} supprimé", f"identique à {duplicate_of}"))
                     is_duplicate = True

@@ -1,7 +1,6 @@
 import customtkinter as ctk                                                         # pyright: ignore[reportMissingImports]
 import tkinter as tk
 import os
-import json
 import threading
 from tkinter import filedialog, scrolledtext, TclError
 from PIL import Image, ImageTk                                                       # pyright: ignore[reportMissingImports]
@@ -17,6 +16,8 @@ from utils import (
      get_default_paths,
      load_paths,
      save_paths,
+     load_backup_path,
+     save_backup_path,
 )
 
 def set_window_icon(window, ico_path):
@@ -66,13 +67,6 @@ class ModalWindow(ctk.CTkToplevel):
                 set_window_icon(self, c)
                 return
 
-    def _on_minimize(self):
-        if self.state() == "iconic":
-            try:
-                self.grab_release()
-            except TclError:
-                pass
-            
     def _on_close(self):
         try:
             self.grab_release()
@@ -175,8 +169,6 @@ class MainApp(ctk.CTk):
 
         self._load_fonts()
 
-        self.download_photos = ctk.BooleanVar(value=True)
-        self.download_videos = ctk.BooleanVar(value=True)
         self.secondary_window = None
 
         self._create_menu()
@@ -189,7 +181,7 @@ class MainApp(ctk.CTk):
         version = self._load_version()
         title   = f"MemorEase" + (f" v{version}" if version else "")
         self.title(title)
-        self.geometry("400x300")
+        self.geometry("400x280")
         self.resizable(False, False)
    
         self.bind("<Map>", lambda e: self.after(50, self._force_icon))
@@ -213,17 +205,7 @@ class MainApp(ctk.CTk):
         set_window_icon(self, resource_path("icon.ico"))
 
     def _open_settings(self):
-        if self.secondary_window is None or not tk.Toplevel.winfo_exists(self.secondary_window):
-            self.secondary_window = SettingsMTPWindow(
-                self,
-                download_photos=self.download_photos.get(),
-                download_videos=self.download_videos.get()
-            )
-        else:
-            self.secondary_window.deiconify()
-            self.secondary_window.lift()
-            self.secondary_window.focus_force()
-            self.secondary_window.grab_set()
+        self.open_modal(SettingsMTPWindow)
     
     def _load_version(self):
         try:
@@ -261,54 +243,40 @@ class MainApp(ctk.CTk):
         self.config(menu=menubar)
 
     def _create_main_widgets(self):
-
-        # Définition de la police personnalisée "IBM Logo"
         logo_font = ctk.CTkFont(family="IBM Logo", size=24)
         self.label = ctk.CTkLabel(self, text="MemorEase", font=logo_font)
-        self.label.pack(pady=20)
+        self.label.pack(pady=(20, 10))
 
-        self.cb_photos = ctk.CTkCheckBox(self, text="Télécharger les photos",
-                                         variable=self.download_photos,
-                                         border_width=2,
-                                         command=self._update_state)
-        self.cb_photos.pack(pady=5)
+        sub_font = ctk.CTkFont(family="IBM Plex Mono", size=10)
 
-        self.cb_videos = ctk.CTkCheckBox(self, text="Télécharger les vidéos",
-                                         variable=self.download_videos,
-                                         border_width=2,
-                                         command=self._update_state)
-        self.cb_videos.pack(pady=5)
+        actions = [
+            (
+                "Commencer la sauvegarde",
+                "Télécharger depuis le téléphone via MTP",
+                self._open_settings,
+            ),
+            (
+                "Trier les fichiers téléchargés",
+                "Organiser et déplacer par date",
+                lambda: self.open_modal(SettingsSortWindow),
+            ),
+            (
+                "Backup externe",
+                "Copier vers un disque ou périphérique externe",
+                self._open_backup_settings,
+            ),
+        ]
 
-        self.download_button = ctk.CTkButton(self,
-                                          text="Commencer la sauvegarde",
-                                          command=self._open_settings)
-        self.download_button.pack(pady=10)
-
-        self.sort_button = ctk.CTkButton(self, text="Trier et sauvegarder les fichiers téléchargés",
-                                         command=lambda: SettingsSortWindow(self))
-        self.sort_button.pack(pady=10)
-
-        self.backup_button = ctk.CTkButton(self,
-                                           text="Réaliser un backup vers un périphérique externe",
-                                           command=self._open_backup_settings)
-        self.backup_button.pack(pady=10)
-
-        self._update_state()
-
-    def _update_state(self):
-        both_false = (not self.download_photos.get()
-                      and not self.download_videos.get())
-        color = "red" if both_false else "#a3a3a3"
-        self.cb_photos.configure(border_color=color)
-        self.cb_videos.configure(border_color=color)
-        state = "disabled" if both_false else "normal"
-        self.download_button.configure(state=state)
+        for btn_text, desc_text, cmd in actions:
+            ctk.CTkButton(self, text=btn_text, command=cmd, width=280).pack(pady=(8, 0))
+            ctk.CTkLabel(self, text=desc_text, font=sub_font,
+                         text_color="#808080").pack(pady=(2, 0))
 
     def _open_changelog(self):
         ChangelogWindow(self)
 
     def _open_backup_settings(self):
-        SettingsBackupWindow(self)
+        self.open_modal(SettingsBackupWindow)
 
     def open_modal(self, window_class, *args, **kwargs):
         if self.secondary_window is None or not tk.Toplevel.winfo_exists(self.secondary_window):
@@ -356,26 +324,26 @@ class MainApp(ctk.CTk):
             win.wait_window()
 
 class SettingsMTPWindow(ModalWindow):
-    def __init__(self, master, download_photos=True, download_videos=True):
+    def __init__(self, master):
         super().__init__(master,
                          title="Paramètres de sauvegarde",
-                         size="750x400",
+                         size="750x470",
                          icon_path="icon.ico")
-        
-        self.download_photos = download_photos
-        self.download_videos = download_videos
+
+        self.download_photos_var = ctk.BooleanVar(value=True)
+        self.download_videos_var = ctk.BooleanVar(value=True)
 
         save, photos, videos = load_paths()
         self.save_var   = tk.StringVar(value=save)
         self.photos_var = tk.StringVar(value=photos)
         self.videos_var = tk.StringVar(value=videos)
-        
+
         try:
             self._create_widgets()
         except Exception as e:
             CTkMessagebox(title="ErreurUI", message=str(e), icon="cancel")
             print("Erreur _create_widgets SettingsMTPWindow", repr(e))
-  
+
     def _create_widgets(self):
         frame = ctk.CTkFrame(self)
         frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -409,6 +377,24 @@ class SettingsMTPWindow(ModalWindow):
                 command=lambda v=var: self._browse(v)
             ).grid(row=i, column=2, padx=5, pady=5, sticky="e")
 
+        # Checkboxes photos / vidéos
+        cb_frame = ctk.CTkFrame(self, fg_color="transparent")
+        cb_frame.pack(pady=(0, 5))
+        self.cb_photos = ctk.CTkCheckBox(
+            cb_frame, text="Télécharger les photos",
+            variable=self.download_photos_var,
+            border_width=2,
+            command=self._update_launch_button
+        )
+        self.cb_photos.grid(row=0, column=0, padx=20)
+        self.cb_videos = ctk.CTkCheckBox(
+            cb_frame, text="Télécharger les vidéos",
+            variable=self.download_videos_var,
+            border_width=2,
+            command=self._update_launch_button
+        )
+        self.cb_videos.grid(row=0, column=1, padx=20)
+
         self.launch_button = ctk.CTkButton(
             self,
             text="Lancer le téléchargement (MTP)",
@@ -416,7 +402,7 @@ class SettingsMTPWindow(ModalWindow):
             state="disabled",
             width=250
         )
-        self.launch_button.pack(pady=20)
+        self.launch_button.pack(pady=15)
 
         for var in (self.save_var, self.photos_var, self.videos_var):
             var.trace_add("write", lambda *_: self._update_launch_button())
@@ -434,9 +420,12 @@ class SettingsMTPWindow(ModalWindow):
         self.videos_var.set(videos)
 
     def _update_launch_button(self):
-        filled = all(v.get().strip() for v in
-                     (self.save_var, self.photos_var, self.videos_var))
-        state = "normal" if filled else "disabled"
+        filled = all(v.get().strip() for v in (self.save_var, self.photos_var, self.videos_var))
+        at_least_one = self.download_photos_var.get() or self.download_videos_var.get()
+        state = "normal" if (filled and at_least_one) else "disabled"
+        color = "red" if (filled and not at_least_one) else "#a3a3a3"
+        self.cb_photos.configure(border_color=color)
+        self.cb_videos.configure(border_color=color)
         self.launch_button.configure(state=state)
 
     def _launch(self):
@@ -461,9 +450,8 @@ class SettingsMTPWindow(ModalWindow):
             save_path=self.save_var.get(),
             photos_path=self.photos_var.get(),
             videos_path=self.videos_var.get(),
-            
-            download_photos=self.download_photos,
-            download_videos=self.download_videos
+            download_photos=self.download_photos_var.get(),
+            download_videos=self.download_videos_var.get()
         )
 
 class MTPWindow(ModalWindow):
@@ -760,19 +748,11 @@ class SettingsBackupWindow(ModalWindow):
     def __init__(self, master):
         super().__init__(master, title="Paramètres du backup HDD", size="750x400", icon_path="icon.ico")
 
-        # Charger chemins existants
-        save, photos, videos = load_paths()
-        # Charger backup depuis config.json si présent
-        try:
-            with open(resource_path("assets/config.json"), "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            backup = cfg.get("backup", "")
-        except Exception:
-            backup = ""
+        _, photos, videos = load_paths()
 
         self.var_photos = tk.StringVar(value=photos)
         self.var_videos = tk.StringVar(value=videos)
-        self.var_backup = tk.StringVar(value=backup)
+        self.var_backup = tk.StringVar(value=load_backup_path())
 
         try:
             self._create_widgets()
@@ -852,19 +832,9 @@ class SettingsBackupWindow(ModalWindow):
             self.entry_bu.configure(border_color="red")
 
     def _launch(self):
-        # Sauvegarde via ConfigManager + ajout du backup
-        try:
-            with open(resource_path("assets/config.json"), "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-        except Exception:
-            cfg = {}
-
-        cfg["photos"] = self.var_photos.get().strip()
-        cfg["videos"] = self.var_videos.get().strip()
-        cfg["backup"] = self.var_backup.get().strip()
-
-        with open(resource_path("assets/config.json"), "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=4, ensure_ascii=False)
+        save, _, _ = load_paths()
+        save_paths(save, self.var_photos.get().strip(), self.var_videos.get().strip())
+        save_backup_path(self.var_backup.get().strip())
 
         self.grab_release()
         self.unbind("<FocusIn>")

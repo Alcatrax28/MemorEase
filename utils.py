@@ -104,9 +104,38 @@ def load_paths():
 
 def save_paths(save, photos, videos):
     """
-    Sauvegarde les chemins dans config.json (externe, à côté du .exe).
+    Sauvegarde les chemins dans config.json (externe), en préservant les autres clés (ex: backup).
     """
     os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
-    data = {"save": save, "photos": photos, "videos": videos}
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+    data.update({"save": save, "photos": photos, "videos": videos})
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+
+def load_backup_path() -> str:
+    """Lit le chemin de backup depuis config.json (externe)."""
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            path = data.get("backup", "")
+            if isinstance(path, str) and path.startswith("/"):
+                return path
+    except Exception:
+        pass
+    return ""
+
+def save_backup_path(backup: str):
+    """Sauvegarde uniquement le chemin de backup dans config.json, en préservant les autres clés."""
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+    data["backup"] = backup
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)

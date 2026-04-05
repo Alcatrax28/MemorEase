@@ -1,3 +1,13 @@
+Version 1.4.0
+-------------
+• Interface : les options "Télécharger photos/vidéos" déplacées dans la fenêtre de paramètres MTP (libère l'écran d'accueil).
+• Interface : écran d'accueil allégé, chaque bouton accompagné d'une description courte.
+• Correction : le chemin de backup n'était plus perdu lors d'une modification des chemins MTP ou tri (écrasement de config.json corrigé).
+• Correction : la fenêtre de backup lisait et écrivait config.json via le mauvais chemin (bug silencieux en mode exécutable).
+• Correction : les fenêtres de tri et backup pouvaient être ouvertes en double simultanément.
+• Performance : détection des doublons photos accélérée — les hashes de rotation sont désormais calculés une seule fois par fichier au lieu d'une fois par comparaison.
+
+
 Version 1.3.2
 -------------
 • Nouveau format de nommage des fichiers : IMG_AAAA_mm_jj-hh_MM_ss (ex: IMG_2024_06_15-14_30_00.jpg).
