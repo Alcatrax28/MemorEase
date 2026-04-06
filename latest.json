@@ -1,10 +1,8 @@
 {
-  "version": "1.4.1",
-  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v1.4.1/MemorEase",
+  "version": "1.4.2",
+  "url": "https://github.com/Alcatrax28/MemorEase/releases/download/v1.4.2/MemorEase",
   "changelog": [
-    "Backup externe : sélection indépendante des photos et/ou vidéos à sauvegarder via checkboxes.",
-    "Interface : logo affiché à gauche du titre sur l'écran d'accueil.",
-    "Interface : hauteur de la barre de menu réduite."
+    "Correctif : l'exécutable Linux embarque désormais les bibliothèques Tcl/Tk, il fonctionne sans installation préalable de tkinter."
   ],
   "mandatory": false
 }
