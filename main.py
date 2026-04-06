@@ -227,15 +227,16 @@ class MainApp(ctk.CTk):
 
     # Menu header
     def _create_menu(self):
-        menubar   = tk.Menu(self)
-        file_menu = tk.Menu(menubar, tearoff=0)
+        menu_font = ("IBM Plex Mono", 9)
+        menubar   = tk.Menu(self, font=menu_font)
+        file_menu = tk.Menu(menubar, tearoff=0, font=menu_font)
 
         # Fichiers > Quitter
         file_menu.add_command(label="Quitter", command=self.quit)
         menubar.add_cascade(label="Fichiers", menu=file_menu)
 
         # Aide > Changelog
-        options_menu = tk.Menu(menubar, tearoff=0)
+        options_menu = tk.Menu(menubar, tearoff=0, font=menu_font)
         options_menu.add_command(label="Changelog", command=self._open_changelog)
         options_menu.add_command(label="Vérifier les mises à jour", command=self.handle_update_if_needed)
         menubar.add_cascade(label="Options", menu=options_menu)
@@ -244,7 +245,18 @@ class MainApp(ctk.CTk):
 
     def _create_main_widgets(self):
         logo_font = ctk.CTkFont(family="IBM Logo", size=24)
-        self.label = ctk.CTkLabel(self, text="MemorEase", font=logo_font)
+
+        icon_ctk = None
+        try:
+            icon_img = Image.open(resource_path("icon.png"))
+            icon_ctk = ctk.CTkImage(icon_img, size=(24, 24))
+        except Exception:
+            pass
+
+        self.label = ctk.CTkLabel(
+            self, text="MemorEase", font=logo_font,
+            image=icon_ctk, compound="left"
+        )
         self.label.pack(pady=(20, 10))
 
         sub_font = ctk.CTkFont(family="IBM Plex Mono", size=10)
@@ -754,6 +766,9 @@ class SettingsBackupWindow(ModalWindow):
         self.var_videos = tk.StringVar(value=videos)
         self.var_backup = tk.StringVar(value=load_backup_path())
 
+        self.backup_photos_var = ctk.BooleanVar(value=True)
+        self.backup_videos_var = ctk.BooleanVar(value=True)
+
         try:
             self._create_widgets()
         except Exception as e:
@@ -763,7 +778,7 @@ class SettingsBackupWindow(ModalWindow):
     def _create_widgets(self):
         frame = ctk.CTkFrame(self)
         frame.pack(fill="both", expand=True, padx=20, pady=20)
-        frame.grid_columnconfigure(1, weight=1)
+        frame.grid_columnconfigure(2, weight=1)
 
         # Bouton rétablir
         ctk.CTkButton(
@@ -772,24 +787,40 @@ class SettingsBackupWindow(ModalWindow):
             command=self._restore_defaults,
             fg_color="grey",
             width=220
-        ).grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        ).grid(row=0, column=0, columnspan=4, pady=(0, 20))
 
-        # Photos
-        ctk.CTkLabel(frame, text="Emplacement des photos existantes :").grid(row=1, column=0, sticky="w", pady=5)
-        ctk.CTkEntry(frame, textvariable=self.var_photos, width=400).grid(row=1, column=1, sticky="ew", padx=5)
-        ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_photos)).grid(row=1, column=2, padx=5)
+        # Photos (checkbox + label + entry + bouton)
+        self.cb_photos = ctk.CTkCheckBox(
+            frame, text="", variable=self.backup_photos_var,
+            width=20, border_width=2,
+            command=self._update_widget_states
+        )
+        self.cb_photos.grid(row=1, column=0, sticky="w", padx=(5, 0))
+        ctk.CTkLabel(frame, text="Emplacement des photos existantes :").grid(row=1, column=1, sticky="w", pady=5)
+        self.entry_photos = ctk.CTkEntry(frame, textvariable=self.var_photos, width=400)
+        self.entry_photos.grid(row=1, column=2, sticky="ew", padx=5)
+        self.btn_photos = ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_photos))
+        self.btn_photos.grid(row=1, column=3, padx=5)
 
-        # Vidéos
-        ctk.CTkLabel(frame, text="Emplacement des vidéos existantes :").grid(row=2, column=0, sticky="w", pady=5)
-        ctk.CTkEntry(frame, textvariable=self.var_videos, width=400).grid(row=2, column=1, sticky="ew", padx=5)
-        ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_videos)).grid(row=2, column=2, padx=5)
+        # Vidéos (checkbox + label + entry + bouton)
+        self.cb_videos = ctk.CTkCheckBox(
+            frame, text="", variable=self.backup_videos_var,
+            width=20, border_width=2,
+            command=self._update_widget_states
+        )
+        self.cb_videos.grid(row=2, column=0, sticky="w", padx=(5, 0))
+        ctk.CTkLabel(frame, text="Emplacement des vidéos existantes :").grid(row=2, column=1, sticky="w", pady=5)
+        self.entry_videos = ctk.CTkEntry(frame, textvariable=self.var_videos, width=400)
+        self.entry_videos.grid(row=2, column=2, sticky="ew", padx=5)
+        self.btn_videos = ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_videos))
+        self.btn_videos.grid(row=2, column=3, padx=5)
 
         # Backup
-        ctk.CTkLabel(frame, text="Dossier de backup externe :").grid(row=3, column=0, sticky="w", pady=5)
+        ctk.CTkLabel(frame, text="Dossier de backup externe :").grid(row=3, column=1, sticky="w", pady=5)
         self.entry_bu = ctk.CTkEntry(frame, textvariable=self.var_backup, width=400,
                                      border_color="green" if self.var_backup.get().strip() else "red")
-        self.entry_bu.grid(row=3, column=1, sticky="ew", padx=5)
-        ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_backup, is_backup=True)).grid(row=3, column=2, padx=5)
+        self.entry_bu.grid(row=3, column=2, sticky="ew", padx=5)
+        ctk.CTkButton(frame, text="Parcourir", command=lambda: self._browse(self.var_backup, is_backup=True)).grid(row=3, column=3, padx=5)
 
         # Bouton lancer
         self.launch_button = ctk.CTkButton(
@@ -803,7 +834,7 @@ class SettingsBackupWindow(ModalWindow):
 
         for var in (self.var_photos, self.var_videos, self.var_backup):
             var.trace_add("write", lambda *_: self._update_launch_button())
-        self._update_launch_button()
+        self._update_widget_states()
 
     def _browse(self, var, is_backup=False):
         path = filedialog.askdirectory()
@@ -819,10 +850,31 @@ class SettingsBackupWindow(ModalWindow):
         self.var_backup.set("")
         self.entry_bu.configure(border_color="red")
 
+    def _update_widget_states(self):
+        photos_on = self.backup_photos_var.get()
+        videos_on = self.backup_videos_var.get()
+        self.entry_photos.configure(state="normal" if photos_on else "disabled")
+        self.btn_photos.configure(state="normal" if photos_on else "disabled")
+        self.entry_videos.configure(state="normal" if videos_on else "disabled")
+        self.btn_videos.configure(state="normal" if videos_on else "disabled")
+        self._update_launch_button()
+
     def _update_launch_button(self):
-        # Vérifie si tous les champs sont remplis
-        filled = all(v.get().strip() for v in (self.var_photos, self.var_videos, self.var_backup))
+        photos_on = self.backup_photos_var.get()
+        videos_on = self.backup_videos_var.get()
+        at_least_one = photos_on or videos_on
+
+        photos_ok = not photos_on or self.var_photos.get().strip()
+        videos_ok = not videos_on or self.var_videos.get().strip()
+        backup_ok = self.var_backup.get().strip()
+
+        filled = at_least_one and photos_ok and videos_ok and backup_ok
         self.launch_button.configure(state="normal" if filled else "disabled")
+
+        # Couleur des checkboxes si aucune n'est cochée
+        cb_color = "red" if not at_least_one else "#a3a3a3"
+        self.cb_photos.configure(border_color=cb_color)
+        self.cb_videos.configure(border_color=cb_color)
 
         # Vérifie si le chemin de backup existe → change la couleur
         backup_path = self.var_backup.get().strip()
@@ -845,16 +897,21 @@ class SettingsBackupWindow(ModalWindow):
             BackupWindow,
             photos_path=self.var_photos.get(),
             videos_path=self.var_videos.get(),
-            backup_path=self.var_backup.get()
+            backup_path=self.var_backup.get(),
+            backup_photos=self.backup_photos_var.get(),
+            backup_videos=self.backup_videos_var.get()
         )
 
 class BackupWindow(ModalWindow):
-    def __init__(self, master, photos_path, videos_path, backup_path):
+    def __init__(self, master, photos_path, videos_path, backup_path,
+                 backup_photos=True, backup_videos=True):
         super().__init__(master, title="Exécution du backup", size="900x500", icon_path="icon.ico")
 
         self.photo_src = photos_path
         self.video_src = videos_path
         self.backup_dest = backup_path
+        self.backup_photos = backup_photos
+        self.backup_videos = backup_videos
         self.cancel_flag = CancelFlag()
 
         # Label initial sans total fixe (sera mis à jour par callback)
@@ -921,7 +978,9 @@ class BackupWindow(ModalWindow):
             self.backup_dest,
             log_callback=lambda m: self.after(0, self._log, m),
             progress_callback=lambda d, t: self.after(0, self._update_progress, d, t),
-            cancel_flag=self.cancel_flag
+            cancel_flag=self.cancel_flag,
+            backup_photos=self.backup_photos,
+            backup_videos=self.backup_videos
         )
 
         self.spinner.stop("✅" if success else "⚠")

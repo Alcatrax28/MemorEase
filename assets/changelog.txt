@@ -1,3 +1,10 @@
+Version 1.4.1
+-------------
+• Backup externe : sélection indépendante des photos et/ou vidéos à sauvegarder via checkboxes (au moins une case doit être cochée pour continuer).
+• Interface : logo affiché à gauche du titre "MemorEase" sur l'écran d'accueil.
+• Interface : hauteur de la barre de menu légèrement réduite.
+
+
 Version 1.4.0
 -------------
 • Interface : les options "Télécharger photos/vidéos" déplacées dans la fenêtre de paramètres MTP (libère l'écran d'accueil).

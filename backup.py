@@ -10,7 +10,8 @@ def md5sum(path, block_size=65536):
     return h.hexdigest()
 
 def run_backup(photo_src, video_src, backup_dest,
-               log_callback=None, progress_callback=None, cancel_flag=None):
+               log_callback=None, progress_callback=None, cancel_flag=None,
+               backup_photos=True, backup_videos=True):
 
     def count_files(path):
         total = 0
@@ -22,9 +23,10 @@ def run_backup(photo_src, video_src, backup_dest,
     photos_dst = os.path.join(base_dest, "Photos")
     videos_dst = os.path.join(base_dest, "Videos")
 
-    src_count = count_files(photo_src) + count_files(video_src)
-    dst_count = (count_files(photos_dst) if os.path.isdir(photos_dst) else 0) \
-              + (count_files(videos_dst) if os.path.isdir(videos_dst) else 0)
+    src_count = (count_files(photo_src) if backup_photos else 0) \
+              + (count_files(video_src) if backup_videos else 0)
+    dst_count = (count_files(photos_dst) if backup_photos and os.path.isdir(photos_dst) else 0) \
+              + (count_files(videos_dst) if backup_videos and os.path.isdir(videos_dst) else 0)
     total = src_count + dst_count
     done = 0
 
@@ -124,12 +126,17 @@ def run_backup(photo_src, video_src, backup_dest,
 
 
 
-    ok1 = mirror(photo_src, photos_dst)
-    if not ok1:
-        return False, done, total
-    ok2 = mirror(video_src, videos_dst)
-    if not ok2:
-        return False, done, total
+    ok1 = True
+    if backup_photos:
+        ok1 = mirror(photo_src, photos_dst)
+        if not ok1:
+            return False, done, total
+
+    ok2 = True
+    if backup_videos:
+        ok2 = mirror(video_src, videos_dst)
+        if not ok2:
+            return False, done, total
 
     success = ok1 and ok2 and not (cancel_flag and cancel_flag.cancelled)
     return success, done, total
